@@ -1,0 +1,7 @@
+##config.local.js
+
+appunti.txt
+output.csv
+
+dati_grezzi/*
+letture_pulite/*

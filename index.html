@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ping Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css?v=5" />
+</head>
+<body>
+  <div class="bg-shape bg-shape-a"></div>
+  <div class="bg-shape bg-shape-b"></div>
+
+  <main class="page">
+    <header class="hero">
+      <h1>Ping Search</h1>
+      <p>Trova partite, atleti e momenti salienti in pochi secondi.</p>
+    </header>
+
+    <section class="search-card">
+      <form id="search-form" class="search-form" autocomplete="off">
+        <label class="sr-only" for="q">Cerca video</label>
+        <div class="search-row">
+          <input id="q" name="q" type="text" placeholder="Cerca per titolo, descrizione o atleta..." />
+          <button type="submit">Cerca</button>
+        </div>
+
+        <details class="filters" id="filters-panel">
+          <summary>Filtri avanzati</summary>
+          <div class="filters-grid">
+            <div class="field">
+              <label for="channel">Canale</label>
+              <select id="channel" name="channel">
+                <option value="">Tutti</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="athlete">Atleta</label>
+              <select id="athlete" name="athlete">
+                <option value="">Tutti</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="date-from">Data upload da</label>
+              <input id="date-from" name="dateFrom" type="date" />
+            </div>
+
+            <div class="field">
+              <label for="date-to">Data upload a</label>
+              <input id="date-to" name="dateTo" type="date" />
+            </div>
+
+            <div class="field">
+              <label for="views-min">View min</label>
+              <input id="views-min" name="viewsMin" type="number" min="0" step="1" />
+            </div>
+
+            <div class="field">
+              <label for="duration-max">Durata max (secondi)</label>
+              <input id="duration-max" name="durationMax" type="number" min="0" step="1" />
+            </div>
+          </div>
+        </details>
+
+        <div class="actions-row">
+          <button class="btn-secondary" type="button" id="reset-btn">Reset filtri</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="results-section">
+      <div class="results-head">
+        <h2 id="results-title">Ultimi 10 video</h2>
+        <p id="results-meta"></p>
+      </div>
+
+      <div id="status" class="status" aria-live="polite"></div>
+      <ul id="results" class="results-list"></ul>
+      <nav id="pagination" class="pagination hidden" aria-label="Paginazione risultati">
+        <button id="page-prev" class="btn-secondary" type="button">Indietro</button>
+        <div id="page-numbers" class="page-numbers"></div>
+        <button id="page-next" class="btn-secondary" type="button">Avanti</button>
+      </nav>
+    </section>
+
+      <section id="detail-view" class="detail-section hidden" aria-live="polite">
+        <div class="detail-head">
+          <button id="back-btn" class="btn-secondary" type="button">← Torna alla home</button>
+          <h2 class="detail-site-title">Ping Search</h2>
+        </div>
+
+      <article class="detail-card">
+        <h2 id="detail-title"></h2>
+        <p id="detail-channel" class="meta"></p>
+
+        <div class="player-wrap">
+          <iframe
+            id="detail-player"
+            title="Player video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+          ></iframe>
+          <p id="detail-player-note" class="meta"></p>
+        </div>
+
+        <div class="detail-grid">
+          <div>
+            <h3>Descrizione</h3>
+            <p id="detail-description" class="detail-description"></p>
+          </div>
+          <div>
+            <h3>Dati completi</h3>
+            <dl id="detail-data" class="detail-data"></dl>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <template id="result-item-template">
+    <li class="result-item">
+      <a class="thumb-wrap">
+        <img class="thumb" alt="Anteprima video" loading="lazy" />
+      </a>
+      <div class="result-content">
+        <a class="title-link"></a>
+        <p class="meta"></p>
+      </div>
+    </li>
+  </template>
+
+  <script src="/config.local.js?v=5"></script>
+  <script src="/script.js?v=5"></script>
+</body>
+</html>
