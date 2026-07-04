@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ping Search</title>
+  <title>Ping Video Search</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -15,7 +15,7 @@
 
   <main class="page">
     <header class="hero">
-      <h1>Ping Search</h1>
+      <h1><a href="/" class="home-brand-link">Ping Video Search</a></h1>
       <p>Trova partite, atleti e momenti salienti in pochi secondi.</p>
     </header>
 
@@ -23,12 +23,32 @@
       <form id="search-form" class="search-form" autocomplete="off">
         <label class="sr-only" for="q">Cerca video</label>
         <div class="search-row">
-          <input id="q" name="q" type="text" placeholder="Cerca per titolo, descrizione o atleta..." />
-          <button type="submit">Cerca</button>
+          <div class="search-input-wrap">
+            <input id="q" name="q" type="text" placeholder="Cerca per titolo, descrizione o atleta..." />
+          </div>
+          <button type="submit" class="search-submit-btn" aria-label="Cerca" title="Cerca">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="11" cy="11" r="6"></circle>
+              <path d="M16 16l5 5"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="filters-link-row">
+          <button
+            id="filters-toggle-btn"
+            class="filters-link-btn"
+            type="button"
+            aria-controls="filters-panel"
+            aria-expanded="false"
+          >
+            Filtri avanzati
+          </button>
         </div>
 
         <details class="filters" id="filters-panel">
-          <summary>Filtri avanzati</summary>
+          <summary class="sr-only">Filtri avanzati</summary>
+          <hr class="filters-divider" />
           <div class="filters-grid">
             <div class="field">
               <label for="channel">Canale</label>
@@ -64,11 +84,11 @@
               <input id="duration-max" name="durationMax" type="number" min="0" step="1" />
             </div>
           </div>
-        </details>
 
-        <div class="actions-row">
-          <button class="btn-secondary" type="button" id="reset-btn">Reset filtri</button>
-        </div>
+          <div class="actions-row">
+            <button class="btn-secondary" type="button" id="reset-btn">Reset filtri</button>
+          </div>
+        </details>
       </form>
     </section>
 
@@ -90,7 +110,7 @@
       <section id="detail-view" class="detail-section hidden" aria-live="polite">
         <div class="detail-head">
           <button id="back-btn" class="btn-secondary" type="button">← Torna alla home</button>
-          <h2 class="detail-site-title">Ping Search</h2>
+          <h2 class="detail-site-title"><a href="/" class="home-brand-link">Ping Video Search</a></h2>
         </div>
 
       <article class="detail-card">

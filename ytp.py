@@ -1,6 +1,7 @@
 import json
 import os
 import glob
+import csv
 from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
 
@@ -80,8 +81,9 @@ def gestisci_lingue(testo):
 # Inizio elaborazione
 file_grezzi = glob.glob(os.path.join(cartella_grezza, "*.info.json"))
 print(f"Elaborazione, traduzione e pulizia di {len(file_grezzi)} file in corso...")
+totale_file = len(file_grezzi)
 
-for percorso_file in file_grezzi:
+for indice, percorso_file in enumerate(file_grezzi, start=1):
     with open(percorso_file, 'r', encoding='utf-8') as f:
         grezzo = json.load(f)
 
@@ -89,7 +91,8 @@ for percorso_file in file_grezzi:
     titolo_originale = grezzo.get("title", "")
     descrizione_originale = grezzo.get("description", "")
 
-    print(f"Traduzione video: {id_video}...")
+    percentuale = (indice / totale_file * 100) if totale_file else 100
+    print(f"Traduzione video {indice}/{totale_file} ({percentuale:.1f}%): {id_video}...")
 
     # Elaboriamo le lingue per titolo e descrizione
     titolo_it, titolo_en = gestisci_lingue(titolo_originale)
@@ -128,3 +131,41 @@ for percorso_file in file_grezzi:
         json.dump(json_su_misura, f_out, ensure_ascii=False, indent=4)
 
 print(f"✅ Fatto! File multilingua salvati in '{cartella_pulita}'.")
+
+# Unione finale di tutti i JSON puliti in un CSV con separatore ';'
+percorso_csv_uscita = "output.csv"
+file_puliti = sorted(glob.glob(os.path.join(cartella_pulita, "*.json")))
+
+righe_csv = []
+for percorso_file in file_puliti:
+    with open(percorso_file, 'r', encoding='utf-8') as f:
+        record = json.load(f)
+        righe_csv.append(record)
+
+if righe_csv:
+    intestazioni = []
+    for riga in righe_csv:
+        for chiave in riga.keys():
+            if chiave not in intestazioni:
+                intestazioni.append(chiave)
+
+    with open(percorso_csv_uscita, 'w', encoding='utf-8', newline='') as f_csv:
+        writer = csv.DictWriter(f_csv, fieldnames=intestazioni, delimiter=';')
+        writer.writeheader()
+        for riga in righe_csv:
+            riga_normalizzata = {}
+            for chiave in intestazioni:
+                valore = riga.get(chiave, "")
+                if isinstance(valore, list):
+                    riga_normalizzata[chiave] = " | ".join(str(item) for item in valore)
+                elif isinstance(valore, dict):
+                    riga_normalizzata[chiave] = json.dumps(valore, ensure_ascii=False)
+                elif valore is None:
+                    riga_normalizzata[chiave] = ""
+                else:
+                    riga_normalizzata[chiave] = valore
+            writer.writerow(riga_normalizzata)
+
+    print(f"✅ CSV generato: '{percorso_csv_uscita}' ({len(righe_csv)} righe), separatore ';'.")
+else:
+    print("⚠️ Nessun file JSON trovato in 'letture_pulite': CSV non generato.")

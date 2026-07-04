@@ -24,6 +24,9 @@ const paginationEl = document.getElementById("pagination");
 const pagePrevBtn = document.getElementById("page-prev");
 const pageNextBtn = document.getElementById("page-next");
 const pageNumbersEl = document.getElementById("page-numbers");
+const filtersPanel = document.getElementById("filters-panel");
+const filtersToggleBtn = document.getElementById("filters-toggle-btn");
+const homeBrandLinks = document.querySelectorAll(".home-brand-link");
 const SUPABASE_API_KEY = window.APP_CONFIG?.supabaseApiKey || "";
 const videoCache = new Map();
 const PAGE_SIZE = 10;
@@ -53,10 +56,26 @@ function bindEvents() {
     await runSearch();
   });
 
+  if (filtersToggleBtn && filtersPanel) {
+    filtersToggleBtn.addEventListener("click", () => {
+      filtersPanel.open = !filtersPanel.open;
+      filtersToggleBtn.setAttribute("aria-expanded", String(filtersPanel.open));
+    });
+
+    filtersPanel.addEventListener("toggle", () => {
+      filtersToggleBtn.setAttribute("aria-expanded", String(filtersPanel.open));
+    });
+  }
+
+  for (const link of homeBrandLinks) {
+    link.addEventListener("click", async (event) => {
+      event.preventDefault();
+      await resetToInitialHome(true);
+    });
+  }
+
   resetBtn.addEventListener("click", async () => {
-    showHomeView();
-    form.reset();
-    await navigateHome(false);
+    await resetToInitialHome(false);
   });
 
   pagePrevBtn.addEventListener("click", async () => {
@@ -88,12 +107,13 @@ function bindEvents() {
     openDetailPage(row, true);
   });
 
-  backBtn.addEventListener("click", async () => {
-    await navigateHome(true);
+  backBtn.addEventListener("click", async (event) => {
+    event.preventDefault();
+    await goBackFromDetail();
   });
 
-  window.addEventListener("popstate", async () => {
-    await syncViewWithRoute();
+  window.addEventListener("popstate", async (event) => {
+    await syncViewWithRoute(event.state || null);
   });
 }
 
@@ -155,6 +175,19 @@ async function runSearch() {
     viewsMin,
     durationMax
   });
+
+  if (!hasActiveFilters({
+    q: text,
+    channel,
+    athlete,
+    dateFrom,
+    dateTo,
+    viewsMin,
+    durationMax
+  })) {
+    await loadLatestItems();
+    return;
+  }
 
   pagingState.titleText = text ? `Risultati per \"${text}\"` : "Risultati filtrati";
 
@@ -264,9 +297,13 @@ function renderLoading() {
   resultsList.appendChild(item);
 }
 
-async function syncViewWithRoute() {
+async function syncViewWithRoute(routeState = null) {
   const videoId = parseVideoIdFromPath(window.location.pathname);
   if (!videoId) {
+    if (routeState?.view === "home" && routeState.listState) {
+      await restoreListState(routeState.listState);
+      return;
+    }
     await loadLatestItems();
     return;
   }
@@ -327,10 +364,12 @@ function openDetailPage(row, pushHistory) {
   clearStatus();
 
   if (pushHistory) {
-    window.history.pushState({ view: "detail", id: row.id }, "", buildVideoPath(row));
+    const listState = getCurrentListState();
+    persistListState();
+    window.history.pushState({ view: "detail", id: row.id, listState }, "", buildVideoPath(row));
   }
 
-  document.title = `${titleText} | ${channelText} | Ping Search`;
+  document.title = `${titleText} | ${channelText} | Ping Video Search`;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -339,8 +378,39 @@ async function navigateHome(pushHistory) {
   if (pushHistory) {
     window.history.pushState({ view: "home" }, "", "/");
   }
-  document.title = "Ping Search";
+  document.title = "Ping Video Search";
   await loadLatestItems();
+}
+
+async function goBackFromDetail() {
+  const currentState = window.history.state;
+  const savedListState = currentState?.view === "detail" ? currentState.listState : null;
+
+  if (savedListState) {
+    await restoreListState(savedListState);
+    return;
+  }
+
+  if (window.history.length > 1) {
+    window.history.back();
+    return;
+  }
+
+  await resetToInitialHome(true);
+}
+
+async function resetToInitialHome(pushHistory) {
+  form.reset();
+
+  if (filtersPanel) {
+    filtersPanel.open = false;
+  }
+  if (filtersToggleBtn) {
+    filtersToggleBtn.setAttribute("aria-expanded", "false");
+  }
+
+  clearStatus();
+  await navigateHome(pushHistory);
 }
 
 async function loadPage(page, customTitle = "") {
@@ -363,6 +433,7 @@ async function loadPage(page, customTitle = "") {
     renderPagination();
     titleEl.textContent = pagingState.titleText || customTitle || "Risultati filtrati";
     metaEl.textContent = `${totalItems} risultati • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
+    persistListState();
 
     if (!rows.length) {
       showStatus("Nessun risultato con i filtri selezionati.");
@@ -372,7 +443,7 @@ async function loadPage(page, customTitle = "") {
 
   const query = pagingState.mode === "search" && pagingState.lastSearchParams
     ? new URLSearchParams(pagingState.lastSearchParams)
-    : new URLSearchParams("select=*&order=upload_date.desc");
+    : new URLSearchParams("select=*&order=upload_date.desc.nullslast");
 
   query.set("limit", String(PAGE_SIZE));
   query.set("offset", String(from));
@@ -391,12 +462,13 @@ async function loadPage(page, customTitle = "") {
     renderPagination();
 
     if (pagingState.mode === "latest") {
-      titleEl.textContent = "Ultimi video";
+      titleEl.textContent = "Ultimi 10 video";
     } else {
       titleEl.textContent = pagingState.titleText || customTitle || "Risultati filtrati";
     }
 
     metaEl.textContent = `${totalItems} risultati • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
+    persistListState();
 
     if (!rows.length) {
       showStatus("Nessun risultato con i filtri selezionati.");
@@ -409,6 +481,86 @@ async function loadPage(page, customTitle = "") {
       : "Errore durante la ricerca. Controlla endpoint e permessi.";
     showStatus(genericMessage);
   }
+}
+
+function persistListState() {
+  if (detailView && !detailView.classList.contains("hidden")) {
+    return;
+  }
+
+  const snapshot = {
+    view: "home",
+    listState: getCurrentListState()
+  };
+
+  window.history.replaceState(snapshot, "", "/");
+}
+
+function getCurrentListState() {
+  return {
+    page: pagingState.currentPage || 1,
+    mode: pagingState.mode || "latest",
+    titleText: pagingState.titleText || "",
+    filters: readFormFilters()
+  };
+}
+
+async function restoreListState(listState) {
+  const safeState = listState || {};
+  const filters = safeState.filters || {};
+  const targetPage = Math.max(1, Number(safeState.page) || 1);
+
+  writeFormFilters(filters);
+
+  const hasSearch = hasActiveFilters(filters);
+  if (!hasSearch || safeState.mode === "latest") {
+    await loadLatestItems();
+  } else {
+    if (safeState.titleText) {
+      pagingState.titleText = safeState.titleText;
+    }
+    await runSearch();
+  }
+
+  if (targetPage > 1) {
+    await loadPage(targetPage);
+  }
+}
+
+function readFormFilters() {
+  return {
+    q: form.q.value || "",
+    channel: form.channel.value || "",
+    athlete: form.athlete.value || "",
+    dateFrom: form.dateFrom.value || "",
+    dateTo: form.dateTo.value || "",
+    viewsMin: form.viewsMin.value || "",
+    durationMax: form.durationMax.value || ""
+  };
+}
+
+function writeFormFilters(filters) {
+  const safe = filters || {};
+  form.q.value = safe.q || "";
+  form.channel.value = safe.channel || "";
+  form.athlete.value = safe.athlete || "";
+  form.dateFrom.value = safe.dateFrom || "";
+  form.dateTo.value = safe.dateTo || "";
+  form.viewsMin.value = safe.viewsMin || "";
+  form.durationMax.value = safe.durationMax || "";
+}
+
+function hasActiveFilters(filters) {
+  const safe = filters || {};
+  return Boolean(
+    String(safe.q || "").trim()
+    || safe.channel
+    || safe.athlete
+    || safe.dateFrom
+    || safe.dateTo
+    || safe.viewsMin !== ""
+    || safe.durationMax !== ""
+  );
 }
 
 function renderPagination(forceHide = false) {
