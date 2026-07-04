@@ -2,6 +2,11 @@
 
 appunti.txt
 output.csv
+.env
+.env.*
+!.env.example
+
+*.csv
 
 dati_grezzi/*
 letture_pulite/*
