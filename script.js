@@ -249,25 +249,32 @@ async function loadFilterOptions() {
     query.set("order", "channel.asc");
     const rows = await fetchAllRows(query, 500, 10000);
 
-    const channels = new Set();
-    const athletes = new Set();
+    const channelsByKey = new Map();
+    const athletesByKey = new Map();
     const tagsByKey = new Map();
 
     for (const row of rows) {
       if (row.channel) {
-        channels.add(row.channel);
+        const channelName = String(row.channel || "").trim();
+        const key = normalizeSearchText(channelName);
+        if (key && !channelsByKey.has(key)) {
+          channelsByKey.set(key, channelName);
+        }
       }
 
       const athleteNames = normalizeAthletesValue(row.atleti);
       for (const name of athleteNames) {
         if (name) {
-          athletes.add(name);
+          const key = normalizeSearchText(name);
+          if (key && !athletesByKey.has(key)) {
+            athletesByKey.set(key, name);
+          }
         }
       }
 
       const tagNames = normalizeTagsValue(row.tags);
       for (const name of tagNames) {
-        if (name) {
+        if (name && !isTimeLikeTag(name)) {
           const key = normalizeSearchText(name);
           if (key && !tagsByKey.has(key)) {
             tagsByKey.set(key, name);
@@ -276,9 +283,9 @@ async function loadFilterOptions() {
       }
     }
 
-    renderChannelOptions([...channels].sort(localeCompareIt));
-    renderAthleteOptions([...athletes].sort(localeCompareIt));
-    renderTagOptions([...tagsByKey.values()].sort(localeCompareIt));
+    renderChannelOptions(sortAlphabetically([...channelsByKey.values()]));
+    renderAthleteOptions(sortAlphabetically([...athletesByKey.values()]));
+    renderTagOptions(sortAlphabetically([...tagsByKey.values()]));
   } catch (error) {
     showStatus("Impossibile caricare le opzioni filtro.");
     renderChannelOptions([]);
@@ -437,6 +444,15 @@ function normalizeAthletesValue(value) {
 
 function normalizeTagsValue(value) {
   return normalizeAthletesValue(value);
+}
+
+function sortAlphabetically(values) {
+  return [...(values || [])].sort((a, b) => localeCompareIt(String(a || ""), String(b || "")));
+}
+
+function isTimeLikeTag(value) {
+  const text = String(value || "").trim();
+  return /^\d{1,2}[:.]\d{2}$/.test(text);
 }
 
 function renderAthleteOptions(values) {
@@ -608,11 +624,13 @@ async function runSearch() {
   const tags = getSelectedTags();
   const dateFrom = form.dateFrom.value;
   const dateTo = form.dateTo.value;
+  const durationRange = form.durationRange.value;
 
   applyStructuredFilters(query, {
     channels,
     dateFrom,
-    dateTo
+    dateTo,
+    durationRange
   });
 
   if (!hasActiveFilters({
@@ -621,7 +639,8 @@ async function runSearch() {
     athletes,
     tags,
     dateFrom,
-    dateTo
+    dateTo,
+    durationRange
   })) {
     await loadLatestItems();
     return;
@@ -633,7 +652,8 @@ async function runSearch() {
     athletes,
     tags,
     dateFrom,
-    dateTo
+    dateTo,
+    durationRange
   });
 
   const needsLocalTextFilter = Boolean(text);
@@ -723,6 +743,7 @@ function renderResults(rows) {
 
     const internalUrl = buildVideoPath(row);
     const titleText = row.title_it || row.title_en || row.id || "Video senza titolo";
+    const isItalianContent = Boolean(row.title_it || row.description_it);
 
     thumbLink.href = internalUrl;
     title.href = internalUrl;
@@ -740,7 +761,12 @@ function renderResults(rows) {
       parts.push(formatUploadDate(row.upload_date));
     }
     if (typeof row.view_count === "number") {
-      parts.push(`${row.view_count.toLocaleString("it-IT")} views`);
+      const viewsLabel = isItalianContent ? "visualizzazioni" : "views";
+      parts.push(`${row.view_count.toLocaleString("it-IT")} ${viewsLabel}`);
+    }
+    const durationText = formatDurationHms(row.duration);
+    if (durationText) {
+      parts.push(`Durata ${durationText}`);
     }
 
     meta.textContent = parts.join(" • ");
@@ -1039,7 +1065,8 @@ function readFormFilters() {
     tags: getSelectedTags(),
     tagSearch: tagSearchInput?.value || "",
     dateFrom: form.dateFrom.value || "",
-    dateTo: form.dateTo.value || ""
+    dateTo: form.dateTo.value || "",
+    durationRange: form.durationRange.value || ""
   };
 }
 
@@ -1051,6 +1078,7 @@ function buildSearchSummaryTitle(filters) {
   const tags = Array.isArray(filters?.tags) ? filters.tags : [];
   const dateFrom = filters?.dateFrom || "";
   const dateTo = filters?.dateTo || "";
+  const durationRange = filters?.durationRange || "";
 
   if (q) {
     parts.push(`testo: \"${q}\"`);
@@ -1069,6 +1097,9 @@ function buildSearchSummaryTitle(filters) {
   }
   if (dateTo) {
     parts.push(`a: ${dateTo}`);
+  }
+  if (durationRange) {
+    parts.push(`durata: ${getDurationRangeLabel(durationRange)}`);
   }
 
   if (parts.length === 0) {
@@ -1115,6 +1146,7 @@ function writeFormFilters(filters) {
   if (dateToInput) {
     dateToInput.value = safe.dateTo || "";
   }
+  form.durationRange.value = safe.durationRange || "";
   normalizeDateRange();
   updateDateRangeDisplay();
 }
@@ -1138,6 +1170,7 @@ function hasActiveFilters(filters) {
     || hasTags
     || safe.dateFrom
     || safe.dateTo
+    || safe.durationRange
   );
 }
 
@@ -1250,7 +1283,8 @@ function applyStructuredFilters(query, filters) {
   const {
     channels,
     dateFrom,
-    dateTo
+    dateTo,
+    durationRange
   } = filters;
 
   if (Array.isArray(channels) && channels.length > 0) {
@@ -1264,6 +1298,77 @@ function applyStructuredFilters(query, filters) {
   if (dateTo) {
     query.append("upload_date", `lte.${compactDate(dateTo)}`);
   }
+
+  const durationSpec = getDurationRangeSpec(durationRange);
+  if (durationSpec?.minExclusive !== undefined) {
+    query.set("duration", `gt.${durationSpec.minExclusive}`);
+  }
+  if (durationSpec?.minInclusive !== undefined) {
+    query.set("duration", `gte.${durationSpec.minInclusive}`);
+  }
+  if (durationSpec?.maxInclusive !== undefined) {
+    query.append("duration", `lte.${durationSpec.maxInclusive}`);
+  }
+}
+
+function getDurationRangeSpec(durationRange) {
+  switch (durationRange) {
+    case "lte3":
+      return { maxInclusive: 180 };
+    case "3to5":
+      return { minExclusive: 180, maxInclusive: 300 };
+    case "5to10":
+      return { minExclusive: 300, maxInclusive: 600 };
+    case "10to30":
+      return { minExclusive: 600, maxInclusive: 1800 };
+    case "30to60":
+      return { minExclusive: 1800, maxInclusive: 3600 };
+    case "gt60":
+      return { minExclusive: 3600 };
+    default:
+      return null;
+  }
+}
+
+function getDurationRangeLabel(durationRange) {
+  switch (durationRange) {
+    case "lte3":
+      return "<= 3 minuti";
+    case "3to5":
+      return "da 3 a 5 minuti";
+    case "5to10":
+      return "da 5 a 10 minuti";
+    case "10to30":
+      return "da 10 a 30 minuti";
+    case "30to60":
+      return "da 30 minuti ad 1 ora";
+    case "gt60":
+      return "> di 1 ora";
+    default:
+      return durationRange || "";
+  }
+}
+
+function formatDurationHms(rawSeconds) {
+  const secondsTotal = Number(rawSeconds);
+  if (!Number.isFinite(secondsTotal) || secondsTotal < 0) {
+    return "";
+  }
+
+  const rounded = Math.floor(secondsTotal);
+  const hours = Math.floor(rounded / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+  const seconds = rounded % 60;
+
+  const hh = String(hours).padStart(2, "0");
+  const mm = String(minutes).padStart(2, "0");
+  const ss = String(seconds).padStart(2, "0");
+
+  if (hours === 0) {
+    return `${mm}:${ss}`;
+  }
+
+  return `${hh}:${mm}:${ss}`;
 }
 
 function toPostgrestInValues(values) {
