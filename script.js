@@ -743,7 +743,7 @@ function renderResults(rows) {
 
     const internalUrl = buildVideoPath(row);
     const titleText = row.title_it || row.title_en || row.id || "Video senza titolo";
-    const isItalianContent = Boolean(row.title_it || row.description_it);
+    const isItalianContent = inferItalianContent(row);
 
     thumbLink.href = internalUrl;
     title.href = internalUrl;
@@ -761,7 +761,7 @@ function renderResults(rows) {
       parts.push(formatUploadDate(row.upload_date));
     }
     if (typeof row.view_count === "number") {
-      const viewsLabel = isItalianContent ? "visualizzazioni" : "views";
+      const viewsLabel = getViewsLabel(isItalianContent);
       parts.push(`${row.view_count.toLocaleString("it-IT")} ${viewsLabel}`);
     }
     const durationText = formatDurationHms(row.duration);
@@ -1365,10 +1365,10 @@ function formatDurationHms(rawSeconds) {
   const ss = String(seconds).padStart(2, "0");
 
   if (hours === 0) {
-    return `${mm}:${ss}`;
+    return `${mm}:${ss} minuti`;
   }
 
-  return `${hh}:${mm}:${ss}`;
+  return `${hh}:${mm}:${ss} ore`;
 }
 
 function toPostgrestInValues(values) {
@@ -1471,16 +1471,90 @@ function stopDetailPlayback() {
 
 function renderDetailData(row) {
   detailData.innerHTML = "";
-  const entries = Object.entries(row || {});
+  const safeRow = row || {};
+  const isItalianContent = inferItalianContent(safeRow);
+  const hiddenKeys = new Set([
+    "id",
+    "webpage_url",
+    "channel_id",
+    "thumbnail",
+    "categories",
+    "title_it",
+    "title_en",
+    "description_it",
+    "description_en"
+  ]);
+
+  const entries = Object.entries(safeRow).filter(([key]) => !hiddenKeys.has(key));
 
   for (const [key, value] of entries) {
     const dt = document.createElement("dt");
     const dd = document.createElement("dd");
-    dt.textContent = key;
-    dd.textContent = formatDetailValue(value);
+    dt.textContent = getDetailFieldLabel(key, isItalianContent);
+    dd.textContent = formatDetailValueByKey(key, value, isItalianContent);
     detailData.appendChild(dt);
     detailData.appendChild(dd);
   }
+}
+
+function inferItalianContent(row) {
+  return Boolean(row?.title_it || row?.description_it);
+}
+
+function getViewsLabel(isItalianContent) {
+  return isItalianContent ? "visualizzazioni" : "views";
+}
+
+function getDetailFieldLabel(key, isItalianContent) {
+  const labelsIt = {
+    title: "Titolo",
+    channel: "Canale",
+    upload_date: "Data di pubblicazione",
+    duration: "Durata",
+    view_count: "Visualizzazioni",
+    like_count: "Mi piace",
+    comment_count: "Commenti",
+    tags: "Tag",
+    atleti: "Atleti",
+    subtitles_it: "Sottotitoli (IT)",
+    subtitles_en: "Sottotitoli (EN)"
+  };
+
+  const labelsEn = {
+    title: "Title",
+    channel: "Channel",
+    upload_date: "Publication date",
+    duration: "Duration",
+    view_count: "Views",
+    like_count: "Likes",
+    comment_count: "Comments",
+    tags: "Tags",
+    atleti: "Athletes",
+    subtitles_it: "Subtitles (IT)",
+    subtitles_en: "Subtitles (EN)"
+  };
+
+  const labels = isItalianContent ? labelsIt : labelsEn;
+  return labels[key] || key.replaceAll("_", " ");
+}
+
+function formatDetailValueByKey(key, value, isItalianContent) {
+  if (key === "duration") {
+    return formatDurationHms(value) || "n/d";
+  }
+
+  if (key === "upload_date") {
+    return formatUploadDate(value);
+  }
+
+  if (key === "view_count") {
+    const numberValue = Number(value);
+    if (Number.isFinite(numberValue)) {
+      return `${numberValue.toLocaleString("it-IT")} ${getViewsLabel(isItalianContent)}`;
+    }
+  }
+
+  return formatDetailValue(value);
 }
 
 function formatDetailValue(value) {
