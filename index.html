@@ -68,7 +68,10 @@
           <hr class="filters-divider" />
           <div class="filters-grid">
             <div class="field">
-              <label for="channel-search">Canale</label>
+              <div class="filter-label-row">
+                <label for="channel-search">Canale <span id="channel-selected-count" class="filter-selected-count hidden"></span></label>
+                <button id="channel-clear-btn" class="filter-clear-icon hidden" type="button" aria-label="Rimuovi filtri canale">×</button>
+              </div>
               <div class="channel-search-row">
                 <input id="channel-search" type="search" placeholder="Cerca canale..." autocomplete="off" />
                 <button
@@ -82,12 +85,14 @@
                   <span aria-hidden="true">▾</span>
                 </button>
               </div>
-              <p id="channel-selected-label" class="filter-selected-label">Nessun canale selezionato</p>
               <div id="channel-options" class="channel-options is-collapsed" role="group" aria-label="Seleziona uno o piu canali"></div>
             </div>
 
             <div class="field">
-              <label for="athlete-search">Atleta</label>
+              <div class="filter-label-row">
+                <label for="athlete-search">Atleta <span id="athlete-selected-count" class="filter-selected-count hidden"></span></label>
+                <button id="athlete-clear-btn" class="filter-clear-icon hidden" type="button" aria-label="Rimuovi filtri atleti">×</button>
+              </div>
               <div class="athlete-search-row">
                 <input id="athlete-search" type="search" placeholder="Cerca atleta..." autocomplete="off" />
                 <button
@@ -105,23 +110,42 @@
             </div>
 
             <div class="field">
-              <label for="date-from">Data upload da</label>
-              <input id="date-from" name="dateFrom" type="date" />
+              <div class="filter-label-row">
+                <label for="tag-search">Tag <span id="tag-selected-count" class="filter-selected-count hidden"></span></label>
+                <button id="tag-clear-btn" class="filter-clear-icon hidden" type="button" aria-label="Rimuovi filtri tag">×</button>
+              </div>
+              <div class="tag-search-row">
+                <input id="tag-search" type="search" placeholder="Cerca tag..." autocomplete="off" />
+                <button
+                  id="tag-toggle-btn"
+                  class="tag-toggle-btn"
+                  type="button"
+                  aria-label="Mostra o nascondi lista tag"
+                  aria-controls="tag-options"
+                  aria-expanded="false"
+                >
+                  <span aria-hidden="true">▾</span>
+                </button>
+              </div>
+              <div id="tag-options" class="tag-options is-collapsed" role="group" aria-label="Seleziona uno o piu tag"></div>
             </div>
 
             <div class="field">
-              <label for="date-to">Data upload a</label>
-              <input id="date-to" name="dateTo" type="date" />
-            </div>
-
-            <div class="field">
-              <label for="views-min">View min</label>
-              <input id="views-min" name="viewsMin" type="number" min="0" step="1" />
-            </div>
-
-            <div class="field">
-              <label for="duration-max">Durata max (secondi)</label>
-              <input id="duration-max" name="durationMax" type="number" min="0" step="1" />
+              <label for="date-range-display">Data di pubblicazione</label>
+              <details class="date-range-panel" id="date-range-panel">
+                <summary id="date-range-display" class="date-range-summary"><span class="date-range-text">Seleziona intervallo date</span><span class="date-range-caret" aria-hidden="true">▾</span></summary>
+                <div class="date-range-content">
+                  <div class="date-range-inputs">
+                    <label for="date-from">Da</label>
+                    <input id="date-from" name="dateFrom" type="date" />
+                  </div>
+                  <div class="date-range-inputs">
+                    <label for="date-to">A</label>
+                    <input id="date-to" name="dateTo" type="date" />
+                  </div>
+                  <button type="button" id="date-range-clear" class="date-range-clear-btn">Cancella date</button>
+                </div>
+              </details>
             </div>
           </div>
 

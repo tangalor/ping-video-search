@@ -11,10 +11,23 @@ const searchCard = document.querySelector(".search-card");
 const channelOptionsEl = document.getElementById("channel-options");
 const channelSearchInput = document.getElementById("channel-search");
 const channelToggleBtn = document.getElementById("channel-toggle-btn");
-const channelSelectedLabel = document.getElementById("channel-selected-label");
+const channelClearBtn = document.getElementById("channel-clear-btn");
+const channelSelectedCount = document.getElementById("channel-selected-count");
 const athleteOptionsEl = document.getElementById("athlete");
 const athleteSearchInput = document.getElementById("athlete-search");
 const athleteToggleBtn = document.getElementById("athlete-toggle-btn");
+const athleteClearBtn = document.getElementById("athlete-clear-btn");
+const athleteSelectedCount = document.getElementById("athlete-selected-count");
+const tagOptionsEl = document.getElementById("tag-options");
+const tagSearchInput = document.getElementById("tag-search");
+const tagToggleBtn = document.getElementById("tag-toggle-btn");
+const tagClearBtn = document.getElementById("tag-clear-btn");
+const tagSelectedCount = document.getElementById("tag-selected-count");
+const dateRangePanel = document.getElementById("date-range-panel");
+const dateRangeDisplay = document.getElementById("date-range-display");
+const dateFromInput = document.getElementById("date-from");
+const dateToInput = document.getElementById("date-to");
+const dateRangeClearBtn = document.getElementById("date-range-clear");
 const template = document.getElementById("result-item-template");
 const resultsSection = document.querySelector(".results-section");
 const detailView = document.getElementById("detail-view");
@@ -50,6 +63,7 @@ let pagingState = {
 init();
 
 async function init() {
+  setupDateRangeInputs();
   bindEvents();
   await loadFilterOptions();
   await syncViewWithRoute();
@@ -60,6 +74,7 @@ function bindEvents() {
     event.preventDefault();
     showHomeView();
     await runSearch();
+    scrollToResultsIfNeeded();
   });
 
   if (filtersToggleBtn && filtersPanel) {
@@ -92,9 +107,81 @@ function bindEvents() {
     });
   }
 
+  if (channelClearBtn) {
+    channelClearBtn.addEventListener("click", () => {
+      setSelectedChannels([]);
+    });
+  }
+
+  if (tagSearchInput) {
+    tagSearchInput.addEventListener("input", () => {
+      filterTagOptions(tagSearchInput.value || "");
+    });
+  }
+
+  if (tagToggleBtn && tagOptionsEl) {
+    tagToggleBtn.addEventListener("click", () => {
+      const isCollapsed = tagOptionsEl.classList.toggle("is-collapsed");
+      tagToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
+    });
+  }
+
+  if (athleteClearBtn) {
+    athleteClearBtn.addEventListener("click", () => {
+      setSelectedAthletes([]);
+    });
+  }
+
+  if (tagClearBtn) {
+    tagClearBtn.addEventListener("click", () => {
+      setSelectedTags([]);
+    });
+  }
+
   if (channelOptionsEl) {
     channelOptionsEl.addEventListener("change", () => {
-      updateChannelSelectedLabel();
+      updateChannelSelectionUi();
+    });
+  }
+
+  if (athleteOptionsEl) {
+    athleteOptionsEl.addEventListener("change", () => {
+      updateAthleteSelectionUi();
+    });
+  }
+
+  if (tagOptionsEl) {
+    tagOptionsEl.addEventListener("change", () => {
+      updateTagSelectionUi();
+    });
+  }
+
+  if (dateFromInput) {
+    dateFromInput.addEventListener("change", () => {
+      normalizeDateRange("from");
+      updateDateRangeDisplay();
+    });
+  }
+
+  if (dateToInput) {
+    dateToInput.addEventListener("change", () => {
+      normalizeDateRange("to");
+      updateDateRangeDisplay();
+    });
+  }
+
+  if (dateRangeClearBtn) {
+    dateRangeClearBtn.addEventListener("click", () => {
+      if (dateFromInput) {
+        dateFromInput.value = "";
+      }
+      if (dateToInput) {
+        dateToInput.value = "";
+      }
+      updateDateRangeDisplay();
+      if (dateRangePanel) {
+        dateRangePanel.open = false;
+      }
     });
   }
 
@@ -158,12 +245,13 @@ function bindEvents() {
 async function loadFilterOptions() {
   try {
     const query = new URLSearchParams();
-    query.set("select", "channel,atleti");
+    query.set("select", "channel,atleti,tags");
     query.set("order", "channel.asc");
     const rows = await fetchAllRows(query, 500, 10000);
 
     const channels = new Set();
     const athletes = new Set();
+    const tagsByKey = new Map();
 
     for (const row of rows) {
       if (row.channel) {
@@ -176,14 +264,26 @@ async function loadFilterOptions() {
           athletes.add(name);
         }
       }
+
+      const tagNames = normalizeTagsValue(row.tags);
+      for (const name of tagNames) {
+        if (name) {
+          const key = normalizeSearchText(name);
+          if (key && !tagsByKey.has(key)) {
+            tagsByKey.set(key, name);
+          }
+        }
+      }
     }
 
     renderChannelOptions([...channels].sort(localeCompareIt));
     renderAthleteOptions([...athletes].sort(localeCompareIt));
+    renderTagOptions([...tagsByKey.values()].sort(localeCompareIt));
   } catch (error) {
     showStatus("Impossibile caricare le opzioni filtro.");
     renderChannelOptions([]);
     renderAthleteOptions([]);
+    renderTagOptions([]);
   }
 }
 
@@ -199,7 +299,7 @@ function renderChannelOptions(values) {
     empty.className = "channel-empty";
     empty.textContent = "Nessun canale disponibile.";
     channelOptionsEl.appendChild(empty);
-    updateChannelSelectedLabel();
+    updateChannelSelectionUi();
     return;
   }
 
@@ -221,7 +321,7 @@ function renderChannelOptions(values) {
   }
 
   filterChannelOptions(channelSearchInput?.value || "");
-  updateChannelSelectedLabel();
+  updateChannelSelectionUi();
 }
 
 function filterChannelOptions(searchText) {
@@ -259,24 +359,53 @@ function setSelectedChannels(values) {
     checkbox.checked = selected.has(checkbox.value);
   }
 
-  updateChannelSelectedLabel();
+  updateChannelSelectionUi();
 }
 
-function updateChannelSelectedLabel() {
-  if (!channelSelectedLabel) {
-    return;
+function updateSelectionUi(count, countEl, clearBtn, singularLabel, pluralLabel) {
+  if (countEl) {
+    if (count > 0) {
+      countEl.textContent = count === 1 ? `1 ${singularLabel}` : `${count} ${pluralLabel}`;
+      countEl.classList.remove("hidden");
+    } else {
+      countEl.textContent = "";
+      countEl.classList.add("hidden");
+    }
   }
 
-  const count = getSelectedChannels().length;
-  if (count === 0) {
-    channelSelectedLabel.textContent = "Nessun canale selezionato";
-    return;
+  if (clearBtn) {
+    clearBtn.classList.toggle("hidden", count === 0);
   }
-  if (count === 1) {
-    channelSelectedLabel.textContent = "1 canale selezionato";
-    return;
-  }
-  channelSelectedLabel.textContent = `${count} canali selezionati`;
+}
+
+function updateChannelSelectionUi() {
+  updateSelectionUi(
+    getSelectedChannels().length,
+    channelSelectedCount,
+    channelClearBtn,
+    "canale selezionato",
+    "canali selezionati"
+  );
+}
+
+function updateAthleteSelectionUi() {
+  updateSelectionUi(
+    getSelectedAthletes().length,
+    athleteSelectedCount,
+    athleteClearBtn,
+    "atleta selezionato",
+    "atleti selezionati"
+  );
+}
+
+function updateTagSelectionUi() {
+  updateSelectionUi(
+    getSelectedTags().length,
+    tagSelectedCount,
+    tagClearBtn,
+    "tag selezionato",
+    "tag selezionati"
+  );
 }
 
 function normalizeAthletesValue(value) {
@@ -306,6 +435,10 @@ function normalizeAthletesValue(value) {
     .filter(Boolean);
 }
 
+function normalizeTagsValue(value) {
+  return normalizeAthletesValue(value);
+}
+
 function renderAthleteOptions(values) {
   if (!athleteOptionsEl) {
     return;
@@ -318,6 +451,7 @@ function renderAthleteOptions(values) {
     empty.className = "athlete-empty";
     empty.textContent = "Nessun atleta disponibile.";
     athleteOptionsEl.appendChild(empty);
+    updateAthleteSelectionUi();
     return;
   }
 
@@ -339,6 +473,7 @@ function renderAthleteOptions(values) {
   }
 
   filterAthleteOptions(athleteSearchInput?.value || "");
+  updateAthleteSelectionUi();
 }
 
 function filterAthleteOptions(searchText) {
@@ -375,6 +510,83 @@ function setSelectedAthletes(values) {
   for (const checkbox of checkboxes) {
     checkbox.checked = selected.has(checkbox.value);
   }
+
+  updateAthleteSelectionUi();
+}
+
+function renderTagOptions(values) {
+  if (!tagOptionsEl) {
+    return;
+  }
+
+  tagOptionsEl.innerHTML = "";
+
+  if (!values.length) {
+    const empty = document.createElement("p");
+    empty.className = "tag-empty";
+    empty.textContent = "Nessun tag disponibile.";
+    tagOptionsEl.appendChild(empty);
+    updateTagSelectionUi();
+    return;
+  }
+
+  for (const value of values) {
+    const label = document.createElement("label");
+    label.className = "tag-option";
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.name = "tag";
+    input.value = value;
+
+    const text = document.createElement("span");
+    text.textContent = value;
+
+    label.appendChild(input);
+    label.appendChild(text);
+    tagOptionsEl.appendChild(label);
+  }
+
+  filterTagOptions(tagSearchInput?.value || "");
+  updateTagSelectionUi();
+}
+
+function filterTagOptions(searchText) {
+  if (!tagOptionsEl) {
+    return;
+  }
+
+  const needle = normalizeSearchText(searchText);
+  const options = tagOptionsEl.querySelectorAll(".tag-option");
+
+  for (const option of options) {
+    const labelText = option.textContent || "";
+    const visible = !needle || normalizeSearchText(labelText).includes(needle);
+    option.classList.toggle("hidden", !visible);
+  }
+}
+
+function getSelectedTags() {
+  if (!tagOptionsEl) {
+    return [];
+  }
+
+  const checked = tagOptionsEl.querySelectorAll('input[name="tag"]:checked');
+  return [...checked].map((input) => input.value).filter(Boolean);
+}
+
+function setSelectedTags(values) {
+  const selected = new Set((values || []).map((value) => normalizeSearchText(value)));
+  if (!tagOptionsEl) {
+    return;
+  }
+
+  const checkboxes = tagOptionsEl.querySelectorAll('input[name="tag"]');
+  for (const checkbox of checkboxes) {
+    checkbox.checked = selected.has(normalizeSearchText(checkbox.value));
+  }
+
+  updateTagSelectionUi();
 }
 
 async function loadLatestItems() {
@@ -393,28 +605,23 @@ async function runSearch() {
   const text = form.q.value.trim();
   const channels = getSelectedChannels();
   const athletes = getSelectedAthletes();
+  const tags = getSelectedTags();
   const dateFrom = form.dateFrom.value;
   const dateTo = form.dateTo.value;
-  const viewsMin = form.viewsMin.value;
-  const durationMax = form.durationMax.value;
 
   applyStructuredFilters(query, {
     channels,
-    athletes,
     dateFrom,
-    dateTo,
-    viewsMin,
-    durationMax
+    dateTo
   });
 
   if (!hasActiveFilters({
     q: text,
     channels,
     athletes,
+    tags,
     dateFrom,
-    dateTo,
-    viewsMin,
-    durationMax
+    dateTo
   })) {
     await loadLatestItems();
     return;
@@ -424,16 +631,16 @@ async function runSearch() {
     q: text,
     channels,
     athletes,
+    tags,
     dateFrom,
-    dateTo,
-    viewsMin,
-    durationMax
+    dateTo
   });
 
   const needsLocalTextFilter = Boolean(text);
   const needsLocalAthleteFilter = athletes.length > 0;
+  const needsLocalTagFilter = tags.length > 0;
 
-  if (needsLocalTextFilter || needsLocalAthleteFilter) {
+  if (needsLocalTextFilter || needsLocalAthleteFilter || needsLocalTagFilter) {
     try {
       const candidates = await fetchAllRows(query, 500, 5000);
       const filtered = candidates.filter((row) => {
@@ -441,6 +648,9 @@ async function runSearch() {
           return false;
         }
         if (needsLocalAthleteFilter && !matchesSelectedAthletes(row, athletes)) {
+          return false;
+        }
+        if (needsLocalTagFilter && !matchesSelectedTags(row, tags)) {
           return false;
         }
         return true;
@@ -663,6 +873,11 @@ async function resetToInitialHome(pushHistory) {
     filterChannelOptions("");
   }
 
+  if (tagSearchInput) {
+    tagSearchInput.value = "";
+    filterTagOptions("");
+  }
+
   if (channelOptionsEl) {
     channelOptionsEl.classList.add("is-collapsed");
   }
@@ -679,12 +894,22 @@ async function resetToInitialHome(pushHistory) {
     athleteToggleBtn.setAttribute("aria-expanded", "false");
   }
 
+  if (tagOptionsEl) {
+    tagOptionsEl.classList.add("is-collapsed");
+  }
+
+  if (tagToggleBtn) {
+    tagToggleBtn.setAttribute("aria-expanded", "false");
+  }
+
   if (filtersPanel) {
     filtersPanel.open = false;
   }
   if (filtersToggleBtn) {
     filtersToggleBtn.setAttribute("aria-expanded", "false");
   }
+
+  updateDateRangeDisplay();
 
   clearStatus();
   await navigateHome(pushHistory);
@@ -811,10 +1036,10 @@ function readFormFilters() {
     channelSearch: channelSearchInput?.value || "",
     athletes: getSelectedAthletes(),
     athleteSearch: athleteSearchInput?.value || "",
+    tags: getSelectedTags(),
+    tagSearch: tagSearchInput?.value || "",
     dateFrom: form.dateFrom.value || "",
-    dateTo: form.dateTo.value || "",
-    viewsMin: form.viewsMin.value || "",
-    durationMax: form.durationMax.value || ""
+    dateTo: form.dateTo.value || ""
   };
 }
 
@@ -823,10 +1048,9 @@ function buildSearchSummaryTitle(filters) {
   const q = String(filters?.q || "").trim();
   const channels = Array.isArray(filters?.channels) ? filters.channels : [];
   const athletes = Array.isArray(filters?.athletes) ? filters.athletes : [];
+  const tags = Array.isArray(filters?.tags) ? filters.tags : [];
   const dateFrom = filters?.dateFrom || "";
   const dateTo = filters?.dateTo || "";
-  const viewsMin = filters?.viewsMin || "";
-  const durationMax = filters?.durationMax || "";
 
   if (q) {
     parts.push(`testo: \"${q}\"`);
@@ -837,17 +1061,14 @@ function buildSearchSummaryTitle(filters) {
   if (athletes.length > 0) {
     parts.push(`atleti: ${athletes.join(", ")}`);
   }
+  if (tags.length > 0) {
+    parts.push(`tag: ${tags.join(", ")}`);
+  }
   if (dateFrom) {
     parts.push(`da: ${dateFrom}`);
   }
   if (dateTo) {
     parts.push(`a: ${dateTo}`);
-  }
-  if (viewsMin !== "") {
-    parts.push(`view min: ${viewsMin}`);
-  }
-  if (durationMax !== "") {
-    parts.push(`durata max: ${durationMax}s`);
   }
 
   if (parts.length === 0) {
@@ -866,6 +1087,9 @@ function writeFormFilters(filters) {
   const athletes = Array.isArray(safe.athletes)
     ? safe.athletes
     : (safe.athlete ? [safe.athlete] : []);
+  const tags = Array.isArray(safe.tags)
+    ? safe.tags
+    : (safe.tag ? [safe.tag] : []);
 
   if (channelSearchInput) {
     channelSearchInput.value = safe.channelSearch || "";
@@ -875,14 +1099,24 @@ function writeFormFilters(filters) {
     athleteSearchInput.value = safe.athleteSearch || "";
   }
 
+  if (tagSearchInput) {
+    tagSearchInput.value = safe.tagSearch || "";
+  }
+
   setSelectedChannels(channels);
   filterChannelOptions(channelSearchInput?.value || "");
   setSelectedAthletes(athletes);
   filterAthleteOptions(athleteSearchInput?.value || "");
-  form.dateFrom.value = safe.dateFrom || "";
-  form.dateTo.value = safe.dateTo || "";
-  form.viewsMin.value = safe.viewsMin || "";
-  form.durationMax.value = safe.durationMax || "";
+  setSelectedTags(tags);
+  filterTagOptions(tagSearchInput?.value || "");
+  if (dateFromInput) {
+    dateFromInput.value = safe.dateFrom || "";
+  }
+  if (dateToInput) {
+    dateToInput.value = safe.dateTo || "";
+  }
+  normalizeDateRange();
+  updateDateRangeDisplay();
 }
 
 function hasActiveFilters(filters) {
@@ -893,15 +1127,17 @@ function hasActiveFilters(filters) {
   const hasAthletes = Array.isArray(safe.athletes)
     ? safe.athletes.length > 0
     : Boolean(safe.athlete);
+  const hasTags = Array.isArray(safe.tags)
+    ? safe.tags.length > 0
+    : Boolean(safe.tag);
 
   return Boolean(
     String(safe.q || "").trim()
     || hasChannels
     || hasAthletes
+    || hasTags
     || safe.dateFrom
     || safe.dateTo
-    || safe.viewsMin !== ""
-    || safe.durationMax !== ""
   );
 }
 
@@ -922,10 +1158,29 @@ function matchesSelectedAthletes(row, selectedAthletes) {
   });
 }
 
+function matchesSelectedTags(row, selectedTags) {
+  if (!Array.isArray(selectedTags) || selectedTags.length === 0) {
+    return true;
+  }
+
+  const normalizedCandidates = normalizeTagsValue(row?.tags)
+    .map((value) => normalizeSearchText(value));
+
+  return selectedTags.some((selected) => {
+    const needle = normalizeSearchText(selected);
+    if (!needle) {
+      return false;
+    }
+    return normalizedCandidates.some((candidate) => candidate.includes(needle));
+  });
+}
+
 function renderPagination(forceHide = false) {
   if (forceHide || pagingState.totalItems <= PAGE_SIZE) {
     paginationEl.classList.add("hidden");
     pageNumbersEl.innerHTML = "";
+    pagePrevBtn.classList.add("hidden");
+    pageNextBtn.classList.add("hidden");
     pagePrevBtn.disabled = true;
     pageNextBtn.disabled = true;
     return;
@@ -995,9 +1250,7 @@ function applyStructuredFilters(query, filters) {
   const {
     channels,
     dateFrom,
-    dateTo,
-    viewsMin,
-    durationMax
+    dateTo
   } = filters;
 
   if (Array.isArray(channels) && channels.length > 0) {
@@ -1010,14 +1263,6 @@ function applyStructuredFilters(query, filters) {
 
   if (dateTo) {
     query.append("upload_date", `lte.${compactDate(dateTo)}`);
-  }
-
-  if (viewsMin !== "") {
-    query.set("view_count", `gte.${viewsMin}`);
-  }
-
-  if (durationMax !== "") {
-    query.set("duration", `lte.${durationMax}`);
   }
 }
 
@@ -1095,6 +1340,7 @@ function parseTotalFromContentRange(contentRange) {
 }
 
 function showHomeView() {
+  stopDetailPlayback();
   heroSection.classList.remove("hidden");
   searchCard.classList.remove("hidden");
   resultsSection.classList.remove("hidden");
@@ -1106,6 +1352,16 @@ function showDetailView() {
   searchCard.classList.add("hidden");
   resultsSection.classList.add("hidden");
   detailView.classList.remove("hidden");
+}
+
+function stopDetailPlayback() {
+  if (!detailPlayer) {
+    return;
+  }
+
+  if (detailPlayer.src) {
+    detailPlayer.src = "";
+  }
 }
 
 function renderDetailData(row) {
@@ -1231,4 +1487,107 @@ function showStatus(message) {
 
 function clearStatus() {
   statusEl.textContent = "";
+}
+
+function scrollToResultsIfNeeded() {
+  if (!resultsSection || !titleEl) {
+    return;
+  }
+
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+  const titleRect = titleEl.getBoundingClientRect();
+  const titleIsVisible = titleRect.top >= 0 && titleRect.bottom <= viewportHeight;
+
+  if (titleIsVisible) {
+    return;
+  }
+
+  resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function setupDateRangeInputs() {
+  const today = getTodayIsoDate();
+
+  if (dateFromInput) {
+    dateFromInput.max = today;
+  }
+
+  if (dateToInput) {
+    dateToInput.max = today;
+  }
+
+  normalizeDateRange();
+  updateDateRangeDisplay();
+}
+
+function normalizeDateRange(changedField = "") {
+  const today = getTodayIsoDate();
+  if (!dateFromInput || !dateToInput) {
+    return;
+  }
+
+  if (dateFromInput.value && dateFromInput.value > today) {
+    dateFromInput.value = today;
+  }
+
+  if (dateToInput.value && dateToInput.value > today) {
+    dateToInput.value = today;
+  }
+
+  if (dateFromInput.value && dateToInput.value && dateFromInput.value > dateToInput.value) {
+    if (changedField === "to") {
+      dateFromInput.value = dateToInput.value;
+    } else {
+      dateToInput.value = dateFromInput.value;
+    }
+  }
+}
+
+function updateDateRangeDisplay() {
+  if (!dateRangeDisplay || !dateFromInput || !dateToInput) {
+    return;
+  }
+
+  const dateRangeTextEl = dateRangeDisplay.querySelector(".date-range-text");
+  if (!dateRangeTextEl) {
+    return;
+  }
+
+  const from = dateFromInput.value;
+  const to = dateToInput.value;
+
+  if (!from && !to) {
+    dateRangeTextEl.textContent = "Seleziona intervallo date";
+    return;
+  }
+
+  if (from && to) {
+    dateRangeTextEl.textContent = `${formatIsoDateToIt(from)} - ${formatIsoDateToIt(to)}`;
+    return;
+  }
+
+  if (from) {
+    dateRangeTextEl.textContent = `Da ${formatIsoDateToIt(from)}`;
+    return;
+  }
+
+  dateRangeTextEl.textContent = `Fino a ${formatIsoDateToIt(to)}`;
+}
+
+function getTodayIsoDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatIsoDateToIt(isoDate) {
+  const value = String(isoDate || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year}`;
 }
