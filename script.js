@@ -9,7 +9,9 @@ const resetBtn = document.getElementById("reset-btn");
 const heroSection = document.querySelector(".hero");
 const searchCard = document.querySelector(".search-card");
 const channelSelect = document.getElementById("channel");
-const athleteSelect = document.getElementById("athlete");
+const athleteOptionsEl = document.getElementById("athlete");
+const athleteSearchInput = document.getElementById("athlete-search");
+const athleteToggleBtn = document.getElementById("athlete-toggle-btn");
 const template = document.getElementById("result-item-template");
 const resultsSection = document.querySelector(".results-section");
 const detailView = document.getElementById("detail-view");
@@ -68,6 +70,19 @@ function bindEvents() {
     });
   }
 
+  if (athleteSearchInput) {
+    athleteSearchInput.addEventListener("input", () => {
+      filterAthleteOptions(athleteSearchInput.value || "");
+    });
+  }
+
+  if (athleteToggleBtn && athleteOptionsEl) {
+    athleteToggleBtn.addEventListener("click", () => {
+      const isCollapsed = athleteOptionsEl.classList.toggle("is-collapsed");
+      athleteToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
+    });
+  }
+
   for (const link of homeBrandLinks) {
     link.addEventListener("click", async (event) => {
       event.preventDefault();
@@ -120,8 +135,10 @@ function bindEvents() {
 
 async function loadFilterOptions() {
   try {
-    const result = await fetchRows("select=channel,atleti&limit=1000");
-    const rows = result.rows;
+    const query = new URLSearchParams();
+    query.set("select", "channel,atleti");
+    query.set("order", "channel.asc");
+    const rows = await fetchAllRows(query, 500, 10000);
 
     const channels = new Set();
     const athletes = new Set();
@@ -131,19 +148,117 @@ async function loadFilterOptions() {
         channels.add(row.channel);
       }
 
-      if (Array.isArray(row.atleti)) {
-        for (const name of row.atleti) {
-          if (name) {
-            athletes.add(name);
-          }
+      const athleteNames = normalizeAthletesValue(row.atleti);
+      for (const name of athleteNames) {
+        if (name) {
+          athletes.add(name);
         }
       }
     }
 
     fillSelect(channelSelect, [...channels].sort(localeCompareIt));
-    fillSelect(athleteSelect, [...athletes].sort(localeCompareIt));
+    renderAthleteOptions([...athletes].sort(localeCompareIt));
   } catch (error) {
     showStatus("Impossibile caricare le opzioni filtro.");
+    renderAthleteOptions([]);
+  }
+}
+
+function normalizeAthletesValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return [];
+  }
+
+  if (raw.startsWith("[") && raw.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+      }
+    } catch (error) {
+      // Fallback to separator-based parsing.
+    }
+  }
+
+  return raw
+    .split(/\s*\|\s*|\s*,\s*/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function renderAthleteOptions(values) {
+  if (!athleteOptionsEl) {
+    return;
+  }
+
+  athleteOptionsEl.innerHTML = "";
+
+  if (!values.length) {
+    const empty = document.createElement("p");
+    empty.className = "athlete-empty";
+    empty.textContent = "Nessun atleta disponibile.";
+    athleteOptionsEl.appendChild(empty);
+    return;
+  }
+
+  for (const value of values) {
+    const label = document.createElement("label");
+    label.className = "athlete-option";
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.name = "athlete";
+    input.value = value;
+
+    const text = document.createElement("span");
+    text.textContent = value;
+
+    label.appendChild(input);
+    label.appendChild(text);
+    athleteOptionsEl.appendChild(label);
+  }
+
+  filterAthleteOptions(athleteSearchInput?.value || "");
+}
+
+function filterAthleteOptions(searchText) {
+  if (!athleteOptionsEl) {
+    return;
+  }
+
+  const needle = normalizeSearchText(searchText);
+  const options = athleteOptionsEl.querySelectorAll(".athlete-option");
+
+  for (const option of options) {
+    const labelText = option.textContent || "";
+    const visible = !needle || normalizeSearchText(labelText).includes(needle);
+    option.classList.toggle("hidden", !visible);
+  }
+}
+
+function getSelectedAthletes() {
+  if (!athleteOptionsEl) {
+    return [];
+  }
+
+  const checked = athleteOptionsEl.querySelectorAll('input[name="athlete"]:checked');
+  return [...checked].map((input) => input.value).filter(Boolean);
+}
+
+function setSelectedAthletes(values) {
+  const selected = new Set((values || []).map((value) => String(value)));
+  if (!athleteOptionsEl) {
+    return;
+  }
+
+  const checkboxes = athleteOptionsEl.querySelectorAll('input[name="athlete"]');
+  for (const checkbox of checkboxes) {
+    checkbox.checked = selected.has(checkbox.value);
   }
 }
 
@@ -162,7 +277,7 @@ async function runSearch() {
 
   const text = form.q.value.trim();
   const channel = form.channel.value;
-  const athlete = form.athlete.value;
+  const athletes = getSelectedAthletes();
   const dateFrom = form.dateFrom.value;
   const dateTo = form.dateTo.value;
   const viewsMin = form.viewsMin.value;
@@ -170,7 +285,7 @@ async function runSearch() {
 
   applyStructuredFilters(query, {
     channel,
-    athlete,
+    athletes,
     dateFrom,
     dateTo,
     viewsMin,
@@ -180,7 +295,7 @@ async function runSearch() {
   if (!hasActiveFilters({
     q: text,
     channel,
-    athlete,
+    athletes,
     dateFrom,
     dateTo,
     viewsMin,
@@ -403,6 +518,19 @@ async function goBackFromDetail() {
 async function resetToInitialHome(pushHistory) {
   form.reset();
 
+  if (athleteSearchInput) {
+    athleteSearchInput.value = "";
+    filterAthleteOptions("");
+  }
+
+  if (athleteOptionsEl) {
+    athleteOptionsEl.classList.add("is-collapsed");
+  }
+
+  if (athleteToggleBtn) {
+    athleteToggleBtn.setAttribute("aria-expanded", "false");
+  }
+
   if (filtersPanel) {
     filtersPanel.open = false;
   }
@@ -532,7 +660,8 @@ function readFormFilters() {
   return {
     q: form.q.value || "",
     channel: form.channel.value || "",
-    athlete: form.athlete.value || "",
+    athletes: getSelectedAthletes(),
+    athleteSearch: athleteSearchInput?.value || "",
     dateFrom: form.dateFrom.value || "",
     dateTo: form.dateTo.value || "",
     viewsMin: form.viewsMin.value || "",
@@ -544,7 +673,16 @@ function writeFormFilters(filters) {
   const safe = filters || {};
   form.q.value = safe.q || "";
   form.channel.value = safe.channel || "";
-  form.athlete.value = safe.athlete || "";
+  const athletes = Array.isArray(safe.athletes)
+    ? safe.athletes
+    : (safe.athlete ? [safe.athlete] : []);
+
+  if (athleteSearchInput) {
+    athleteSearchInput.value = safe.athleteSearch || "";
+  }
+
+  setSelectedAthletes(athletes);
+  filterAthleteOptions(athleteSearchInput?.value || "");
   form.dateFrom.value = safe.dateFrom || "";
   form.dateTo.value = safe.dateTo || "";
   form.viewsMin.value = safe.viewsMin || "";
@@ -553,10 +691,14 @@ function writeFormFilters(filters) {
 
 function hasActiveFilters(filters) {
   const safe = filters || {};
+  const hasAthletes = Array.isArray(safe.athletes)
+    ? safe.athletes.length > 0
+    : Boolean(safe.athlete);
+
   return Boolean(
     String(safe.q || "").trim()
     || safe.channel
-    || safe.athlete
+    || hasAthletes
     || safe.dateFrom
     || safe.dateTo
     || safe.viewsMin !== ""
@@ -636,7 +778,7 @@ function buildVisiblePages(current, total) {
 function applyStructuredFilters(query, filters) {
   const {
     channel,
-    athlete,
+    athletes,
     dateFrom,
     dateTo,
     viewsMin,
@@ -647,8 +789,14 @@ function applyStructuredFilters(query, filters) {
     query.set("channel", `eq.${channel}`);
   }
 
-  if (athlete) {
-    query.set("atleti", `cs.{"${athlete.replaceAll('"', '\\"')}"}`);
+  if (Array.isArray(athletes) && athletes.length > 0) {
+    const conditions = athletes
+      .filter(Boolean)
+      .map((name) => `atleti.cs.${toPostgresTextArray([name])}`);
+
+    if (conditions.length > 0) {
+      query.set("or", `(${conditions.join(",")})`);
+    }
   }
 
   if (dateFrom) {
@@ -666,6 +814,15 @@ function applyStructuredFilters(query, filters) {
   if (durationMax !== "") {
     query.set("duration", `lte.${durationMax}`);
   }
+}
+
+function toPostgresTextArray(values) {
+  const items = (values || [])
+    .map((value) => String(value || ""))
+    .filter(Boolean)
+    .map((value) => `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`);
+
+  return `{${items.join(",")}}`;
 }
 
 async function fetchAllRows(baseQuery, batchSize = 500, maxRows = 5000) {

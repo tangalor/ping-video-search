@@ -244,6 +244,83 @@ body {
   font-size: 0.95rem;
 }
 
+.athlete-options {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.55rem 0.6rem;
+  max-height: 180px;
+  overflow: auto;
+  display: grid;
+  gap: 0.35rem;
+}
+
+#athlete-search {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.92rem;
+}
+
+.athlete-search-row {
+  position: relative;
+}
+
+.athlete-search-row #athlete-search {
+  width: 100%;
+  padding-right: 2.5rem;
+}
+
+.athlete-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: 0.25rem;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #10333a;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.athlete-toggle-btn span {
+  display: inline-block;
+  transition: transform 140ms ease;
+}
+
+.athlete-toggle-btn[aria-expanded="true"] span {
+  transform: rotate(180deg);
+}
+
+.athlete-options.is-collapsed {
+  display: none;
+}
+
+.athlete-option.hidden {
+  display: none;
+}
+
+.athlete-option {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+  color: #10333a;
+}
+
+.athlete-option input {
+  margin: 0;
+}
+
+.athlete-empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .actions-row {
   margin-top: 0.85rem;
 }
@@ -497,6 +574,16 @@ body {
   .page {
     width: min(1100px, calc(100% - 1rem));
     padding-top: 1.25rem;
+  }
+
+  .results-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .results-head p {
+    width: 100%;
   }
 
   .search-row {

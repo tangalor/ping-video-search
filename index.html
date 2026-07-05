@@ -75,10 +75,21 @@
             </div>
 
             <div class="field">
-              <label for="athlete">Atleta</label>
-              <select id="athlete" name="athlete">
-                <option value="">Tutti</option>
-              </select>
+              <label for="athlete-search">Atleta</label>
+              <div class="athlete-search-row">
+                <input id="athlete-search" type="search" placeholder="Cerca atleta..." autocomplete="off" />
+                <button
+                  id="athlete-toggle-btn"
+                  class="athlete-toggle-btn"
+                  type="button"
+                  aria-label="Mostra o nascondi lista atleti"
+                  aria-controls="athlete"
+                  aria-expanded="false"
+                >
+                  <span aria-hidden="true">▾</span>
+                </button>
+              </div>
+              <div id="athlete" class="athlete-options is-collapsed" role="group" aria-label="Seleziona uno o piu atleti"></div>
             </div>
 
             <div class="field">
