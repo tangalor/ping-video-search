@@ -313,6 +313,11 @@ body {
   position: relative;
 }
 
+.duration-select-row {
+  position: relative;
+  width: 100%;
+}
+
 .athlete-search-row #athlete-search {
   width: 100%;
   padding-right: 2.5rem;
@@ -326,6 +331,36 @@ body {
 .tag-search-row #tag-search {
   width: 100%;
   padding-right: 2.5rem;
+}
+
+.duration-toggle-icon {
+  position: absolute;
+  top: 50%;
+  right: 0.25rem;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+  color: #10333a;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.duration-select-row #duration-range {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding-right: 2.5rem;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: none;
 }
 
 .athlete-toggle-btn {
