@@ -68,10 +68,22 @@
           <hr class="filters-divider" />
           <div class="filters-grid">
             <div class="field">
-              <label for="channel">Canale</label>
-              <select id="channel" name="channel">
-                <option value="">Tutti</option>
-              </select>
+              <label for="channel-search">Canale</label>
+              <div class="channel-search-row">
+                <input id="channel-search" type="search" placeholder="Cerca canale..." autocomplete="off" />
+                <button
+                  id="channel-toggle-btn"
+                  class="channel-toggle-btn"
+                  type="button"
+                  aria-label="Mostra o nascondi lista canali"
+                  aria-controls="channel-options"
+                  aria-expanded="false"
+                >
+                  <span aria-hidden="true">▾</span>
+                </button>
+              </div>
+              <p id="channel-selected-label" class="filter-selected-label">Nessun canale selezionato</p>
+              <div id="channel-options" class="channel-options is-collapsed" role="group" aria-label="Seleziona uno o piu canali"></div>
             </div>
 
             <div class="field">
@@ -122,7 +134,7 @@
 
     <section class="results-section">
       <div class="results-head">
-        <h2 id="results-title">Ultimi 10 video</h2>
+        <h2 id="results-title">Video più recenti</h2>
         <p id="results-meta"></p>
       </div>
 
