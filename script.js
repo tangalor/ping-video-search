@@ -30,6 +30,7 @@ const homeBrandLinks = document.querySelectorAll(".home-brand-link");
 const SUPABASE_API_KEY = window.APP_CONFIG?.supabaseApiKey || "";
 const videoCache = new Map();
 const PAGE_SIZE = 10;
+const BASE_PATH = getBasePath();
 
 let pagingState = {
   mode: "latest",
@@ -376,7 +377,7 @@ function openDetailPage(row, pushHistory) {
 async function navigateHome(pushHistory) {
   showHomeView();
   if (pushHistory) {
-    window.history.pushState({ view: "home" }, "", "/");
+    window.history.pushState({ view: "home" }, "", buildAppPath(""));
   }
   document.title = "Ping Video Search";
   await loadLatestItems();
@@ -493,7 +494,7 @@ function persistListState() {
     listState: getCurrentListState()
   };
 
-  window.history.replaceState(snapshot, "", "/");
+  window.history.replaceState(snapshot, "", buildAppPath(""));
 }
 
 function getCurrentListState() {
@@ -778,12 +779,36 @@ function formatDetailValue(value) {
 function buildVideoPath(row) {
   const id = encodeURIComponent(String(row.id || "video"));
   const slug = slugify(`${row.channel || "canale"} ${row.title_it || row.title_en || "video"}`);
-  return `/video/${id}/${slug}`;
+  return buildAppPath(`video/${id}/${slug}`);
 }
 
 function parseVideoIdFromPath(pathname) {
-  const match = String(pathname || "").match(/^\/video\/([^/]+)/);
+  const relativePath = stripBasePath(pathname);
+  const match = String(relativePath || "").match(/^\/video\/([^/]+)/);
   return match ? decodeURIComponent(match[1]) : "";
+}
+
+function getBasePath() {
+  const baseHref = document.querySelector("base")?.getAttribute("href") || "/";
+  const normalized = String(baseHref).replace(/\/+$/, "") || "/";
+  return normalized === "/" ? "" : normalized;
+}
+
+function buildAppPath(relativePath) {
+  const clean = String(relativePath || "").replace(/^\/+/, "");
+  if (!BASE_PATH) {
+    return clean ? `/${clean}` : "/";
+  }
+  return clean ? `${BASE_PATH}/${clean}` : `${BASE_PATH}/`;
+}
+
+function stripBasePath(pathname) {
+  const path = String(pathname || "");
+  if (!BASE_PATH || !path.startsWith(BASE_PATH)) {
+    return path;
+  }
+  const stripped = path.slice(BASE_PATH.length);
+  return stripped.startsWith("/") ? stripped : `/${stripped}`;
 }
 
 function slugify(value) {
