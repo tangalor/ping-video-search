@@ -333,34 +333,21 @@ body {
   padding-right: 2.5rem;
 }
 
-.duration-toggle-icon {
-  position: absolute;
-  top: 50%;
-  right: 0.25rem;
-  transform: translateY(-50%);
-  width: 2rem;
-  height: 2rem;
-  border-radius: 10px;
-  color: #10333a;
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 2;
-}
-
 .duration-select-row #duration-range {
-  position: relative;
-  z-index: 1;
   width: 100%;
   padding-right: 2.5rem;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  background-image: none;
+  background-color: #fff;
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 0.9rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 5.8 8 10.6l4.8-4.8' fill='none' stroke='%2310333a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.duration-select-row #duration-range::-ms-expand {
+  display: none;
 }
 
 .athlete-toggle-btn {
