@@ -327,7 +327,7 @@ async function loadFilterOptions() {
       for (const name of athleteNames) {
         const displayName = formatAthleteDisplayName(name);
         if (displayName && isValidAthleteOption(displayName)) {
-          const key = normalizeSearchText(displayName);
+          const key = buildAthleteCanonicalKey(displayName);
           if (key && !athletesByKey.has(key)) {
             athletesByKey.set(key, displayName);
           }
@@ -536,6 +536,34 @@ function normalizeAthletesValue(value) {
 
 function normalizeTagsValue(value) {
   return normalizeAthletesValue(value);
+}
+
+function buildAthleteCanonicalKey(value) {
+  const variants = getAthleteNameVariants(value);
+  if (!variants.length) {
+    return "";
+  }
+
+  return [...variants].sort(localeCompareIt)[0];
+}
+
+function getAthleteNameVariants(value) {
+  const normalized = normalizeSearchText(value).trim();
+  if (!normalized) {
+    return [];
+  }
+
+  const words = normalized.split(/\s+/).filter(Boolean);
+  const variants = [normalized];
+
+  if (words.length >= 2) {
+    const inverted = `${words.slice(1).join(" ")} ${words[0]}`.trim();
+    if (inverted && !variants.includes(inverted)) {
+      variants.push(inverted);
+    }
+  }
+
+  return variants;
 }
 
 function formatAthleteDisplayName(value) {
@@ -1387,15 +1415,18 @@ function matchesSelectedAthletes(row, selectedAthletes) {
     return true;
   }
 
-  const normalizedCandidates = normalizeAthletesValue(row?.atleti)
-    .map((value) => normalizeSearchText(value));
+  const candidateVariants = normalizeAthletesValue(row?.atleti)
+    .flatMap((value) => getAthleteNameVariants(value));
 
   return selectedAthletes.some((selected) => {
-    const needle = normalizeSearchText(selected);
-    if (!needle) {
+    const selectedVariants = getAthleteNameVariants(selected);
+    if (selectedVariants.length === 0) {
       return false;
     }
-    return normalizedCandidates.some((candidate) => candidate.includes(needle));
+
+    return selectedVariants.some((needle) =>
+      candidateVariants.some((candidate) => candidate.includes(needle))
+    );
   });
 }
 
