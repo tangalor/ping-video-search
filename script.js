@@ -61,6 +61,8 @@ let pagingState = {
   titleText: "Ultimi video"
 };
 
+let hasInitialLatestResults = false;
+
 const filterNoResultsState = {
   channel: false,
   athlete: false,
@@ -824,10 +826,15 @@ async function fetchRows(queryString, withCount = false) {
 }
 
 function renderResults(rows) {
-  showHomeView();
+  const hasRows = Array.isArray(rows) && rows.length > 0;
+  if (pagingState.mode === "latest" && hasRows) {
+    hasInitialLatestResults = true;
+  }
+
+  const keepHiddenForInitialLatest = pagingState.mode === "latest" && !hasInitialLatestResults;
+  showHomeView({ showResultsSection: !keepHiddenForInitialLatest });
   setResultsLoadingState(false);
   resultsList.innerHTML = "";
-  const hasRows = Array.isArray(rows) && rows.length > 0;
 
   if (resultsHeadEl) {
     resultsHeadEl.classList.toggle("hidden", !hasRows);
@@ -887,7 +894,8 @@ function renderResults(rows) {
 }
 
 function renderLoading() {
-  showHomeView();
+  const keepHiddenForInitialLatest = pagingState.mode === "latest" && !hasInitialLatestResults;
+  showHomeView({ showResultsSection: !keepHiddenForInitialLatest });
   setResultsLoadingState(true);
   resultsList.innerHTML = "";
 
@@ -1587,11 +1595,11 @@ function parseTotalFromContentRange(contentRange) {
   return Number(match[1]);
 }
 
-function showHomeView() {
+function showHomeView({ showResultsSection = true } = {}) {
   stopDetailPlayback();
   heroSection.classList.remove("hidden");
   searchCard.classList.remove("hidden");
-  resultsSection.classList.remove("hidden");
+  resultsSection.classList.toggle("hidden", !showResultsSection);
   detailView.classList.add("hidden");
 }
 

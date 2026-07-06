@@ -658,8 +658,9 @@ body {
 
 .results-section.is-loading .results-list {
   grid-template-columns: minmax(0, 1fr);
-  min-height: 46vh;
-  align-content: center;
+  min-height: 180px;
+  align-content: start;
+  margin-top: 0.35rem;
 }
 
 .results-section.is-loading .results-head,
@@ -715,7 +716,7 @@ body {
 
 .results-loader {
   grid-column: 1 / -1;
-  min-height: 300px;
+  min-height: 150px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -941,11 +942,11 @@ body {
   }
 
   .results-section.is-loading .results-list {
-    min-height: 36vh;
+    min-height: 130px;
   }
 
   .results-loader {
-    min-height: 190px;
+    min-height: 120px;
     gap: 0.7rem;
   }
 
