@@ -1141,13 +1141,14 @@ async function loadPage(page, customTitle = "") {
   clearStatus();
   renderLoading();
   const safePage = Math.max(1, Number(page) || 1);
-  const from = (safePage - 1) * PAGE_SIZE;
+  const requestedPage = pagingState.mode === "latest" ? 1 : safePage;
+  const from = (requestedPage - 1) * PAGE_SIZE;
 
   if (pagingState.mode === "search-local") {
     const allRows = pagingState.clientRows || [];
     const totalItems = allRows.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-    pagingState.currentPage = Math.min(safePage, totalPages);
+    pagingState.currentPage = Math.min(requestedPage, totalPages);
     pagingState.totalItems = totalItems;
     pagingState.totalPages = totalPages;
 
@@ -1175,12 +1176,15 @@ async function loadPage(page, customTitle = "") {
   query.set("offset", String(from));
 
   try {
-    const result = await fetchRows(query.toString(), true);
+    const useExactCount = pagingState.mode !== "latest";
+    const result = await fetchRows(query.toString(), useExactCount);
     const rows = result.rows;
-    const totalItems = result.total ?? rows.length;
+    const totalItems = pagingState.mode === "latest"
+      ? rows.length
+      : (result.total ?? rows.length);
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
 
-    pagingState.currentPage = Math.min(safePage, totalPages);
+    pagingState.currentPage = Math.min(requestedPage, totalPages);
     pagingState.totalItems = totalItems;
     pagingState.totalPages = totalPages;
 
@@ -1190,11 +1194,11 @@ async function loadPage(page, customTitle = "") {
     if (rows.length > 0) {
       if (pagingState.mode === "latest") {
         titleEl.textContent = "Video più recenti";
+        metaEl.textContent = "";
       } else {
         titleEl.textContent = pagingState.titleText || customTitle || "Risultati filtrati";
+        metaEl.textContent = `${totalItems} risultati • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
       }
-
-      metaEl.textContent = `${totalItems} risultati • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
     }
     persistListState();
 
