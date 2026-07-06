@@ -656,6 +656,12 @@ body {
   gap: 0.85rem;
 }
 
+.results-section.is-loading .results-list {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 46vh;
+  align-content: center;
+}
+
 .result-item {
   background: var(--paper);
   border: 1px solid var(--line);
@@ -700,6 +706,49 @@ body {
   margin: 0;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.results-loader {
+  grid-column: 1 / -1;
+  min-height: 220px;
+  border: 1px solid rgba(23, 126, 137, 0.18);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 107, 53, 0.1), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(23, 126, 137, 0.12), transparent 45%),
+    rgba(255, 255, 255, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  color: var(--muted);
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(16, 20, 24, 0.06);
+}
+
+.results-loader-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(23, 126, 137, 0.2);
+  border-top-color: var(--accent-2);
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+  position: relative;
+}
+
+.results-loader-spinner::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 107, 53, 0.2);
+  border-bottom-color: var(--accent);
+  animation: spin-reverse 0.95s linear infinite;
+}
+
+.results-loader-text {
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
 }
 
 .detail-section {
@@ -790,6 +839,12 @@ body {
   flex-wrap: wrap;
 }
 
+.results-divider {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 1rem 0 0;
+}
+
 .page-numbers {
   display: flex;
   gap: 0.35rem;
@@ -842,6 +897,18 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-reverse {
+  to {
+    transform: rotate(-360deg);
   }
 }
 

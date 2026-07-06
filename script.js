@@ -5,6 +5,7 @@ const resultsList = document.getElementById("results");
 const statusEl = document.getElementById("status");
 const titleEl = document.getElementById("results-title");
 const metaEl = document.getElementById("results-meta");
+const resultsHeadEl = document.querySelector(".results-head");
 const resetBtn = document.getElementById("reset-btn");
 const heroSection = document.querySelector(".hero");
 const searchCard = document.querySelector(".search-card");
@@ -60,6 +61,12 @@ let pagingState = {
   titleText: "Ultimi video"
 };
 
+const filterNoResultsState = {
+  channel: false,
+  athlete: false,
+  tag: false
+};
+
 init();
 
 async function init() {
@@ -104,6 +111,7 @@ function bindEvents() {
     channelToggleBtn.addEventListener("click", () => {
       const isCollapsed = channelOptionsEl.classList.toggle("is-collapsed");
       channelToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
+      filterChannelOptions(channelSearchInput?.value || "");
     });
   }
 
@@ -123,6 +131,7 @@ function bindEvents() {
     tagToggleBtn.addEventListener("click", () => {
       const isCollapsed = tagOptionsEl.classList.toggle("is-collapsed");
       tagToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
+      filterTagOptions(tagSearchInput?.value || "");
     });
   }
 
@@ -189,6 +198,7 @@ function bindEvents() {
     athleteToggleBtn.addEventListener("click", () => {
       const isCollapsed = athleteOptionsEl.classList.toggle("is-collapsed");
       athleteToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
+      filterAthleteOptions(athleteSearchInput?.value || "");
     });
   }
 
@@ -264,10 +274,11 @@ async function loadFilterOptions() {
 
       const athleteNames = normalizeAthletesValue(row.atleti);
       for (const name of athleteNames) {
-        if (name) {
-          const key = normalizeSearchText(name);
+        const displayName = formatAthleteDisplayName(name);
+        if (displayName && isValidAthleteOption(displayName)) {
+          const key = normalizeSearchText(displayName);
           if (key && !athletesByKey.has(key)) {
-            athletesByKey.set(key, name);
+            athletesByKey.set(key, displayName);
           }
         }
       }
@@ -338,12 +349,21 @@ function filterChannelOptions(searchText) {
 
   const needle = normalizeSearchText(searchText);
   const options = channelOptionsEl.querySelectorAll(".channel-option");
+  let visibleCount = 0;
 
   for (const option of options) {
     const labelText = option.textContent || "";
     const visible = !needle || normalizeSearchText(labelText).includes(needle);
     option.classList.toggle("hidden", !visible);
+    if (visible) {
+      visibleCount += 1;
+    }
   }
+
+  syncDropdownVisibilityForSearch(channelOptionsEl, channelToggleBtn, searchText, visibleCount);
+
+  filterNoResultsState.channel = Boolean(needle) && visibleCount === 0;
+  updateChannelSelectionUi();
 }
 
 function getSelectedChannels() {
@@ -369,9 +389,12 @@ function setSelectedChannels(values) {
   updateChannelSelectionUi();
 }
 
-function updateSelectionUi(count, countEl, clearBtn, singularLabel, pluralLabel) {
+function updateSelectionUi(count, countEl, clearBtn, singularLabel, pluralLabel, noResults) {
   if (countEl) {
-    if (count > 0) {
+    if (noResults) {
+      countEl.textContent = "Nessun risultato trovato";
+      countEl.classList.remove("hidden");
+    } else if (count > 0) {
       countEl.textContent = count === 1 ? `1 ${singularLabel}` : `${count} ${pluralLabel}`;
       countEl.classList.remove("hidden");
     } else {
@@ -385,13 +408,29 @@ function updateSelectionUi(count, countEl, clearBtn, singularLabel, pluralLabel)
   }
 }
 
+function syncDropdownVisibilityForSearch(optionsEl, toggleBtn, searchText, visibleCount) {
+  if (!optionsEl || !toggleBtn) {
+    return;
+  }
+
+  const hasSearchText = Boolean(normalizeSearchText(searchText));
+  if (!hasSearchText) {
+    return;
+  }
+
+  const shouldOpen = visibleCount > 0;
+  optionsEl.classList.toggle("is-collapsed", !shouldOpen);
+  toggleBtn.setAttribute("aria-expanded", String(shouldOpen));
+}
+
 function updateChannelSelectionUi() {
   updateSelectionUi(
     getSelectedChannels().length,
     channelSelectedCount,
     channelClearBtn,
     "canale selezionato",
-    "canali selezionati"
+    "canali selezionati",
+    filterNoResultsState.channel
   );
 }
 
@@ -401,7 +440,8 @@ function updateAthleteSelectionUi() {
     athleteSelectedCount,
     athleteClearBtn,
     "atleta selezionato",
-    "atleti selezionati"
+    "atleti selezionati",
+    filterNoResultsState.athlete
   );
 }
 
@@ -411,7 +451,8 @@ function updateTagSelectionUi() {
     tagSelectedCount,
     tagClearBtn,
     "tag selezionato",
-    "tag selezionati"
+    "tag selezionati",
+    filterNoResultsState.tag
   );
 }
 
@@ -444,6 +485,40 @@ function normalizeAthletesValue(value) {
 
 function normalizeTagsValue(value) {
   return normalizeAthletesValue(value);
+}
+
+function formatAthleteDisplayName(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const compact = raw.replace(/\s+/g, " ");
+  const words = compact.split(" ");
+  return words
+    .map((word) => {
+      const lower = word.toLocaleLowerCase("it-IT");
+      const segments = lower.split(/([\-\'’])/);
+      return segments
+        .map((segment, index) => {
+          if (index % 2 === 1 || !segment) {
+            return segment;
+          }
+          return segment.charAt(0).toLocaleUpperCase("it-IT") + segment.slice(1);
+        })
+        .join("");
+    })
+    .join(" ");
+}
+
+function isValidAthleteOption(value) {
+  const normalized = normalizeSearchText(value).trim();
+  if (!normalized) {
+    return false;
+  }
+
+  // Evita voci rumorose come "..." o solo punteggiatura.
+  return /[a-z0-9]/.test(normalized);
 }
 
 function sortAlphabetically(values) {
@@ -499,12 +574,21 @@ function filterAthleteOptions(searchText) {
 
   const needle = normalizeSearchText(searchText);
   const options = athleteOptionsEl.querySelectorAll(".athlete-option");
+  let visibleCount = 0;
 
   for (const option of options) {
     const labelText = option.textContent || "";
     const visible = !needle || normalizeSearchText(labelText).includes(needle);
     option.classList.toggle("hidden", !visible);
+    if (visible) {
+      visibleCount += 1;
+    }
   }
+
+  syncDropdownVisibilityForSearch(athleteOptionsEl, athleteToggleBtn, searchText, visibleCount);
+
+  filterNoResultsState.athlete = Boolean(needle) && visibleCount === 0;
+  updateAthleteSelectionUi();
 }
 
 function getSelectedAthletes() {
@@ -517,14 +601,14 @@ function getSelectedAthletes() {
 }
 
 function setSelectedAthletes(values) {
-  const selected = new Set((values || []).map((value) => String(value)));
+  const selected = new Set((values || []).map((value) => normalizeSearchText(value)));
   if (!athleteOptionsEl) {
     return;
   }
 
   const checkboxes = athleteOptionsEl.querySelectorAll('input[name="athlete"]');
   for (const checkbox of checkboxes) {
-    checkbox.checked = selected.has(checkbox.value);
+    checkbox.checked = selected.has(normalizeSearchText(checkbox.value));
   }
 
   updateAthleteSelectionUi();
@@ -574,12 +658,21 @@ function filterTagOptions(searchText) {
 
   const needle = normalizeSearchText(searchText);
   const options = tagOptionsEl.querySelectorAll(".tag-option");
+  let visibleCount = 0;
 
   for (const option of options) {
     const labelText = option.textContent || "";
     const visible = !needle || normalizeSearchText(labelText).includes(needle);
     option.classList.toggle("hidden", !visible);
+    if (visible) {
+      visibleCount += 1;
+    }
   }
+
+  syncDropdownVisibilityForSearch(tagOptionsEl, tagToggleBtn, searchText, visibleCount);
+
+  filterNoResultsState.tag = Boolean(needle) && visibleCount === 0;
+  updateTagSelectionUi();
 }
 
 function getSelectedTags() {
@@ -661,6 +754,8 @@ async function runSearch() {
   const needsLocalTagFilter = tags.length > 0;
 
   if (needsLocalTextFilter || needsLocalAthleteFilter || needsLocalTagFilter) {
+    clearStatus();
+    renderLoading();
     try {
       const candidates = await fetchAllRows(query, 500, 5000);
       const filtered = candidates.filter((row) => {
@@ -730,6 +825,7 @@ async function fetchRows(queryString, withCount = false) {
 
 function renderResults(rows) {
   showHomeView();
+  setResultsLoadingState(false);
   resultsList.innerHTML = "";
 
   for (const row of rows) {
@@ -776,12 +872,35 @@ function renderResults(rows) {
 
 function renderLoading() {
   showHomeView();
-  paginationEl.classList.add("hidden");
+  setResultsLoadingState(true);
   resultsList.innerHTML = "";
+
   const item = document.createElement("li");
-  item.className = "meta";
-  item.textContent = "Caricamento in corso...";
+  item.className = "results-loader";
+  item.setAttribute("role", "status");
+  item.setAttribute("aria-live", "polite");
+
+  const spinner = document.createElement("span");
+  spinner.className = "results-loader-spinner";
+  spinner.setAttribute("aria-hidden", "true");
+
+  const text = document.createElement("span");
+  text.className = "results-loader-text";
+  text.textContent = "Caricamento in corso...";
+
+  item.appendChild(spinner);
+  item.appendChild(text);
   resultsList.appendChild(item);
+}
+
+function setResultsLoadingState(isLoading) {
+  resultsSection?.classList.toggle("is-loading", Boolean(isLoading));
+  if (resultsHeadEl) {
+    resultsHeadEl.classList.toggle("hidden", Boolean(isLoading));
+  }
+  if (paginationEl) {
+    paginationEl.classList.toggle("hidden", Boolean(isLoading));
+  }
 }
 
 async function syncViewWithRoute(routeState = null) {

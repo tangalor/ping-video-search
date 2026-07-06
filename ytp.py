@@ -2,6 +2,7 @@ import json
 import os
 import glob
 import csv
+import unicodedata
 from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
 
@@ -42,15 +43,71 @@ DIZIONARIO_ATLETI = [
     "Alessia Turrini", "Laura Negrisoli", "Wang Yu" # Storiche / Pilastri del movimento
 ]
 
+PERCORSO_ATLETI_EXTRA = "atleti_italiani.txt"
+PERCORSO_ATLETI_EXTRA_INVERTITI = "atleti_italiani_invertiti.txt"
+
+
+def carica_atleti_extra(percorso_file):
+    """Carica nomi atleta da file testo (uno per riga), ignorando righe vuote."""
+    if not os.path.exists(percorso_file):
+        return []
+
+    atleti = []
+    with open(percorso_file, "r", encoding="utf-8") as f:
+        for riga in f:
+            nome = " ".join(riga.strip().split())
+            if nome:
+                atleti.append(nome)
+    return atleti
+
+
+# Unisce lista base + liste esterne (normale/invertita), mantenendo ordine e rimuovendo duplicati.
+DIZIONARIO_ATLETI = list(dict.fromkeys(
+    DIZIONARIO_ATLETI
+    + carica_atleti_extra(PERCORSO_ATLETI_EXTRA)
+    + carica_atleti_extra(PERCORSO_ATLETI_EXTRA_INVERTITI)
+))
+
 
 def estrai_atleti(testo):
-    if not testo: return []
+    if not testo:
+        return []
+
     atleti_trovati = []
-    testo_lower = testo.lower()
+    testo_normalizzato = normalizza_testo_per_confronto(testo)
+
     for atleta in DIZIONARIO_ATLETI:
-        if atleta.lower() in testo_lower and atleta not in atleti_trovati:
+        varianti = genera_varianti_nome_atleta(atleta)
+        if any(variante in testo_normalizzato for variante in varianti) and atleta not in atleti_trovati:
             atleti_trovati.append(atleta)
+
     return atleti_trovati
+
+
+def normalizza_testo_per_confronto(testo):
+    testo_base = str(testo or "")
+    testo_senza_accenti = "".join(
+        c for c in unicodedata.normalize("NFD", testo_base)
+        if unicodedata.category(c) != "Mn"
+    )
+    return " ".join(testo_senza_accenti.lower().split())
+
+
+def genera_varianti_nome_atleta(nome_atleta):
+    """Ritorna nome originale normalizzato e variante invertita (nome cognome)."""
+    originale = normalizza_testo_per_confronto(nome_atleta)
+    if not originale:
+        return []
+
+    parole = originale.split()
+    varianti = [originale]
+
+    if len(parole) >= 2:
+        invertito = " ".join([parole[-1], *parole[:-1]])
+        if invertito not in varianti:
+            varianti.append(invertito)
+
+    return varianti
 
 def gestisci_lingue(testo):
     """Rileva la lingua e restituisce una tupla con la versione (italiano, inglese)"""
