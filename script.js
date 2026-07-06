@@ -827,6 +827,22 @@ function renderResults(rows) {
   showHomeView();
   setResultsLoadingState(false);
   resultsList.innerHTML = "";
+  const hasRows = Array.isArray(rows) && rows.length > 0;
+
+  if (resultsHeadEl) {
+    resultsHeadEl.classList.toggle("hidden", !hasRows);
+  }
+  if (!hasRows) {
+    if (titleEl) {
+      titleEl.textContent = "";
+    }
+    if (metaEl) {
+      metaEl.textContent = "";
+    }
+    if (paginationEl) {
+      paginationEl.classList.add("hidden");
+    }
+  }
 
   for (const row of rows) {
     videoCache.set(String(row.id), row);
@@ -896,10 +912,14 @@ function renderLoading() {
 function setResultsLoadingState(isLoading) {
   resultsSection?.classList.toggle("is-loading", Boolean(isLoading));
   if (resultsHeadEl) {
-    resultsHeadEl.classList.toggle("hidden", Boolean(isLoading));
+    if (isLoading) {
+      resultsHeadEl.classList.add("hidden");
+    }
   }
   if (paginationEl) {
-    paginationEl.classList.toggle("hidden", Boolean(isLoading));
+    if (isLoading) {
+      paginationEl.classList.add("hidden");
+    }
   }
 }
 
@@ -1078,8 +1098,10 @@ async function loadPage(page, customTitle = "") {
     const rows = allRows.slice(start, start + PAGE_SIZE);
     renderResults(rows);
     renderPagination();
-    titleEl.textContent = pagingState.titleText || customTitle || "Risultati filtrati";
-    metaEl.textContent = `${totalItems} risultati • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
+    if (rows.length > 0) {
+      titleEl.textContent = pagingState.titleText || customTitle || "Risultati filtrati";
+      metaEl.textContent = `${totalItems} risultati • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
+    }
     persistListState();
 
     if (!rows.length) {
@@ -1108,13 +1130,15 @@ async function loadPage(page, customTitle = "") {
     renderResults(rows);
     renderPagination();
 
-    if (pagingState.mode === "latest") {
-      titleEl.textContent = "Video più recenti";
-    } else {
-      titleEl.textContent = pagingState.titleText || customTitle || "Risultati filtrati";
-    }
+    if (rows.length > 0) {
+      if (pagingState.mode === "latest") {
+        titleEl.textContent = "Video più recenti";
+      } else {
+        titleEl.textContent = pagingState.titleText || customTitle || "Risultati filtrati";
+      }
 
-    metaEl.textContent = `${totalItems} risultati • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
+      metaEl.textContent = `${totalItems} risultati • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
+    }
     persistListState();
 
     if (!rows.length) {

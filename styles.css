@@ -662,6 +662,11 @@ body {
   align-content: center;
 }
 
+.results-section.is-loading .results-head,
+.results-section.is-loading .pagination {
+  display: none;
+}
+
 .result-item {
   background: var(--paper);
   border: 1px solid var(--line);
@@ -710,26 +715,23 @@ body {
 
 .results-loader {
   grid-column: 1 / -1;
-  min-height: 220px;
-  border: 1px solid rgba(23, 126, 137, 0.18);
-  border-radius: var(--radius);
-  background:
-    radial-gradient(circle at 20% 20%, rgba(255, 107, 53, 0.1), transparent 45%),
-    radial-gradient(circle at 85% 80%, rgba(23, 126, 137, 0.12), transparent 45%),
-    rgba(255, 255, 255, 0.88);
+  min-height: 300px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.85rem;
+  gap: 1rem;
   color: var(--muted);
   font-weight: 700;
-  box-shadow: 0 10px 24px rgba(16, 20, 24, 0.06);
+  box-shadow: none;
 }
 
 .results-loader-spinner {
-  width: 34px;
-  height: 34px;
-  border: 3px solid rgba(23, 126, 137, 0.2);
+  width: 68px;
+  height: 68px;
+  border: 5px solid rgba(23, 126, 137, 0.2);
   border-top-color: var(--accent-2);
   border-radius: 50%;
   animation: spin 0.85s linear infinite;
@@ -739,15 +741,15 @@ body {
 .results-loader-spinner::after {
   content: "";
   position: absolute;
-  inset: 7px;
+  inset: 13px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 107, 53, 0.2);
+  border: 3px solid rgba(255, 107, 53, 0.2);
   border-bottom-color: var(--accent);
   animation: spin-reverse 0.95s linear infinite;
 }
 
 .results-loader-text {
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   letter-spacing: 0.01em;
 }
 
@@ -936,6 +938,30 @@ body {
 
   .results-head p {
     width: 100%;
+  }
+
+  .results-section.is-loading .results-list {
+    min-height: 36vh;
+  }
+
+  .results-loader {
+    min-height: 190px;
+    gap: 0.7rem;
+  }
+
+  .results-loader-spinner {
+    width: 42px;
+    height: 42px;
+    border-width: 3px;
+  }
+
+  .results-loader-spinner::after {
+    inset: 8px;
+    border-width: 2px;
+  }
+
+  .results-loader-text {
+    font-size: 0.98rem;
   }
 
   .search-row {
