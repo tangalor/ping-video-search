@@ -10,3 +10,12 @@ output.csv
 
 dati_grezzi/*
 letture_pulite/*
+
+backup/*
+
+output_upsert_from_csv.sql
+
+.DS_Store
+.DS_Store/*
+
+__pycache__/*
