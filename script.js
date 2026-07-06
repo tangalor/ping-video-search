@@ -74,8 +74,10 @@ init();
 async function init() {
   setupDateRangeInputs();
   bindEvents();
-  await loadFilterOptions();
-  await syncViewWithRoute();
+  await Promise.all([
+    loadFilterOptions(),
+    syncViewWithRoute()
+  ]);
 }
 
 function bindEvents() {
