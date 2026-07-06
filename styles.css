@@ -848,6 +848,13 @@ body {
   margin: 1rem 0 0;
 }
 
+.release-version {
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
 .page-numbers {
   display: flex;
   gap: 0.35rem;

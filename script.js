@@ -6,6 +6,7 @@ const statusEl = document.getElementById("status");
 const titleEl = document.getElementById("results-title");
 const metaEl = document.getElementById("results-meta");
 const resultsHeadEl = document.querySelector(".results-head");
+const releaseVersionEl = document.getElementById("release-version");
 const resetBtn = document.getElementById("reset-btn");
 const heroSection = document.querySelector(".hero");
 const searchCard = document.querySelector(".search-card");
@@ -62,6 +63,8 @@ let pagingState = {
 };
 
 let hasInitialLatestResults = false;
+let hasLoadedFilterOptions = false;
+let filterOptionsLoadPromise = null;
 
 const filterNoResultsState = {
   channel: false,
@@ -75,9 +78,29 @@ async function init() {
   setupDateRangeInputs();
   bindEvents();
   await Promise.all([
-    loadFilterOptions(),
+    loadReleaseVersion(),
     syncViewWithRoute()
   ]);
+}
+
+async function loadReleaseVersion() {
+  if (!releaseVersionEl) {
+    return;
+  }
+
+  try {
+    const response = await fetch("release-version.txt?v=16", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const version = (await response.text()).trim();
+    releaseVersionEl.textContent = version
+      ? `Versione rilascio: ${version}`
+      : "Versione rilascio: --";
+  } catch {
+    releaseVersionEl.textContent = "Versione rilascio: --";
+  }
 }
 
 function bindEvents() {
@@ -89,9 +112,14 @@ function bindEvents() {
   });
 
   if (filtersToggleBtn && filtersPanel) {
-    filtersToggleBtn.addEventListener("click", () => {
-      filtersPanel.open = !filtersPanel.open;
+    filtersToggleBtn.addEventListener("click", async () => {
+      const nextOpen = !filtersPanel.open;
+      filtersPanel.open = nextOpen;
       filtersToggleBtn.setAttribute("aria-expanded", String(filtersPanel.open));
+
+      if (nextOpen) {
+        await ensureFilterOptionsLoaded();
+      }
     });
 
     filtersPanel.addEventListener("toggle", () => {
@@ -112,7 +140,8 @@ function bindEvents() {
   }
 
   if (channelToggleBtn && channelOptionsEl) {
-    channelToggleBtn.addEventListener("click", () => {
+    channelToggleBtn.addEventListener("click", async () => {
+      await ensureFilterOptionsLoaded();
       const isCollapsed = channelOptionsEl.classList.toggle("is-collapsed");
       channelToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
       filterChannelOptions(channelSearchInput?.value || "");
@@ -132,7 +161,8 @@ function bindEvents() {
   }
 
   if (tagToggleBtn && tagOptionsEl) {
-    tagToggleBtn.addEventListener("click", () => {
+    tagToggleBtn.addEventListener("click", async () => {
+      await ensureFilterOptionsLoaded();
       const isCollapsed = tagOptionsEl.classList.toggle("is-collapsed");
       tagToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
       filterTagOptions(tagSearchInput?.value || "");
@@ -199,7 +229,8 @@ function bindEvents() {
   }
 
   if (athleteToggleBtn && athleteOptionsEl) {
-    athleteToggleBtn.addEventListener("click", () => {
+    athleteToggleBtn.addEventListener("click", async () => {
+      await ensureFilterOptionsLoaded();
       const isCollapsed = athleteOptionsEl.classList.toggle("is-collapsed");
       athleteToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
       filterAthleteOptions(athleteSearchInput?.value || "");
@@ -254,6 +285,22 @@ function bindEvents() {
   window.addEventListener("popstate", async (event) => {
     await syncViewWithRoute(event.state || null);
   });
+}
+
+async function ensureFilterOptionsLoaded() {
+  if (hasLoadedFilterOptions) {
+    return;
+  }
+
+  if (!filterOptionsLoadPromise) {
+    filterOptionsLoadPromise = loadFilterOptions()
+      .finally(() => {
+        hasLoadedFilterOptions = true;
+        filterOptionsLoadPromise = null;
+      });
+  }
+
+  await filterOptionsLoadPromise;
 }
 
 async function loadFilterOptions() {
@@ -1190,10 +1237,14 @@ async function restoreListState(listState) {
   const safeState = listState || {};
   const filters = safeState.filters || {};
   const targetPage = Math.max(1, Number(safeState.page) || 1);
+  const hasSearch = hasActiveFilters(filters);
+
+  if (hasSearch) {
+    await ensureFilterOptionsLoaded();
+  }
 
   writeFormFilters(filters);
 
-  const hasSearch = hasActiveFilters(filters);
   if (!hasSearch || safeState.mode === "latest") {
     await loadLatestItems();
   } else {
