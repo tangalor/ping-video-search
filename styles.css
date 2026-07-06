@@ -934,7 +934,7 @@ body {
 
 @media (max-width: 680px) {
   .page {
-    width: min(1100px, calc(100% - 1rem));
+    width: min(1100px, calc(100% - 2.4rem));
     padding-top: 1.25rem;
   }
 
