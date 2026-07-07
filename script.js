@@ -6,6 +6,9 @@ const statusEl = document.getElementById("status");
 const titleEl = document.getElementById("results-title");
 const metaEl = document.getElementById("results-meta");
 const resultsHeadEl = document.querySelector(".results-head");
+const quickRangeLatestBtn = document.getElementById("quick-range-latest");
+const quickRangeWeekBtn = document.getElementById("quick-range-week");
+const quickRangeMonthBtn = document.getElementById("quick-range-month");
 const releaseVersionEl = document.getElementById("release-version");
 const resetBtn = document.getElementById("reset-btn");
 const heroSection = document.querySelector(".hero");
@@ -49,7 +52,8 @@ const filtersToggleBtn = document.getElementById("filters-toggle-btn");
 const homeBrandLinks = document.querySelectorAll(".home-brand-link");
 const SUPABASE_API_KEY = window.APP_CONFIG?.supabaseApiKey || "";
 const videoCache = new Map();
-const PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 10;
+const LATEST_PAGE_SIZE = 30;
 const BASE_PATH = getBasePath();
 
 let pagingState = {
@@ -65,6 +69,7 @@ let pagingState = {
 let hasInitialLatestResults = false;
 let hasLoadedFilterOptions = false;
 let filterOptionsLoadPromise = null;
+let activeQuickRange = "latest";
 
 const filterNoResultsState = {
   channel: false,
@@ -225,6 +230,24 @@ function bindEvents() {
       if (dateRangePanel) {
         dateRangePanel.open = false;
       }
+    });
+  }
+
+  if (quickRangeLatestBtn) {
+    quickRangeLatestBtn.addEventListener("click", async () => {
+      await applyQuickLatestRange();
+    });
+  }
+
+  if (quickRangeWeekBtn) {
+    quickRangeWeekBtn.addEventListener("click", async () => {
+      await applyQuickDateRange("week");
+    });
+  }
+
+  if (quickRangeMonthBtn) {
+    quickRangeMonthBtn.addEventListener("click", async () => {
+      await applyQuickDateRange("month");
     });
   }
 
@@ -782,6 +805,7 @@ async function loadLatestItems() {
   pagingState.lastSearchParams = null;
   pagingState.clientRows = null;
   pagingState.titleText = "Ultimi video";
+  setActiveQuickRange("latest");
   await loadPage(1);
 }
 
@@ -1168,20 +1192,21 @@ async function resetToInitialHome(pushHistory) {
 async function loadPage(page, customTitle = "") {
   clearStatus();
   renderLoading();
+  const pageSize = pagingState.mode === "latest" ? LATEST_PAGE_SIZE : DEFAULT_PAGE_SIZE;
   const safePage = Math.max(1, Number(page) || 1);
   const requestedPage = pagingState.mode === "latest" ? 1 : safePage;
-  const from = (requestedPage - 1) * PAGE_SIZE;
+  const from = (requestedPage - 1) * pageSize;
 
   if (pagingState.mode === "search-local") {
     const allRows = pagingState.clientRows || [];
     const totalItems = allRows.length;
-    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
     pagingState.currentPage = Math.min(requestedPage, totalPages);
     pagingState.totalItems = totalItems;
     pagingState.totalPages = totalPages;
 
-    const start = (pagingState.currentPage - 1) * PAGE_SIZE;
-    const rows = allRows.slice(start, start + PAGE_SIZE);
+    const start = (pagingState.currentPage - 1) * pageSize;
+    const rows = allRows.slice(start, start + pageSize);
     renderResults(rows);
     renderPagination();
     if (rows.length > 0) {
@@ -1200,7 +1225,7 @@ async function loadPage(page, customTitle = "") {
     ? new URLSearchParams(pagingState.lastSearchParams)
     : new URLSearchParams("select=*&order=upload_date.desc.nullslast");
 
-  query.set("limit", String(PAGE_SIZE));
+  query.set("limit", String(pageSize));
   query.set("offset", String(from));
 
   try {
@@ -1210,7 +1235,7 @@ async function loadPage(page, customTitle = "") {
     const totalItems = pagingState.mode === "latest"
       ? rows.length
       : (result.total ?? rows.length);
-    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
     pagingState.currentPage = Math.min(requestedPage, totalPages);
     pagingState.totalItems = totalItems;
@@ -1448,7 +1473,8 @@ function matchesSelectedTags(row, selectedTags) {
 }
 
 function renderPagination(forceHide = false) {
-  if (forceHide || pagingState.totalItems <= PAGE_SIZE) {
+  const pageSize = pagingState.mode === "latest" ? LATEST_PAGE_SIZE : DEFAULT_PAGE_SIZE;
+  if (forceHide || pagingState.totalItems <= pageSize) {
     paginationEl.classList.add("hidden");
     pageNumbersEl.innerHTML = "";
     pagePrevBtn.classList.add("hidden");
@@ -1936,6 +1962,75 @@ function setupDateRangeInputs() {
 
   normalizeDateRange();
   updateDateRangeDisplay();
+}
+
+async function applyQuickDateRange(rangeKey) {
+  if (!dateFromInput || !dateToInput) {
+    return;
+  }
+
+  const todayIso = getTodayIsoDate();
+  const toDate = new Date(`${todayIso}T00:00:00`);
+  const fromDate = new Date(toDate);
+
+  if (rangeKey === "week") {
+    fromDate.setDate(fromDate.getDate() - 6);
+  } else if (rangeKey === "month") {
+    fromDate.setMonth(fromDate.getMonth() - 1);
+  } else {
+    return;
+  }
+
+  setActiveQuickRange(rangeKey);
+
+  dateFromInput.value = toIsoDateLocal(fromDate);
+  dateToInput.value = todayIso;
+  normalizeDateRange("to");
+  updateDateRangeDisplay();
+
+  if (filtersPanel) {
+    filtersPanel.open = true;
+  }
+  if (filtersToggleBtn) {
+    filtersToggleBtn.setAttribute("aria-expanded", "true");
+  }
+
+  showHomeView();
+  await runSearch();
+  scrollToResultsIfNeeded();
+}
+
+async function applyQuickLatestRange() {
+  setActiveQuickRange("latest");
+  await resetToInitialHome(false);
+  scrollToResultsIfNeeded();
+}
+
+function setActiveQuickRange(rangeKey) {
+  activeQuickRange = rangeKey;
+
+  const buttons = [
+    [quickRangeLatestBtn, "latest"],
+    [quickRangeWeekBtn, "week"],
+    [quickRangeMonthBtn, "month"],
+  ];
+
+  for (const [button, key] of buttons) {
+    if (!button) {
+      continue;
+    }
+
+    const isActive = activeQuickRange === key;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  }
+}
+
+function toIsoDateLocal(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function normalizeDateRange(changedField = "") {

@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=9" />
+  <link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
   <div class="bg-shape bg-shape-a"></div>
@@ -174,7 +174,14 @@
     <section class="results-section hidden">
       <div class="results-head hidden">
         <h2 id="results-title">Video più recenti</h2>
-        <p id="results-meta"></p>
+        <div class="results-head-right">
+          <div class="quick-range-actions" aria-label="Filtri rapidi per data">
+            <button id="quick-range-latest" class="quick-range-btn" type="button">Più recenti</button>
+            <button id="quick-range-week" class="quick-range-btn" type="button">Ultima settimana</button>
+            <button id="quick-range-month" class="quick-range-btn" type="button">Ultimo mese</button>
+          </div>
+          <p id="results-meta"></p>
+        </div>
       </div>
 
       <div id="status" class="status" aria-live="polite"></div>
@@ -235,6 +242,6 @@
   </template>
 
   <script src="config.local.js?v=5"></script>
-  <script src="script.js?v=19"></script>
+  <script src="script.js?v=21"></script>
 </body>
 </html>

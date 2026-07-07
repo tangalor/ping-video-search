@@ -3,6 +3,7 @@ import csv
 import datetime
 import json
 import pathlib
+import unicodedata
 
 CSV_PATH = pathlib.Path("output.csv")
 SQL_PATH = pathlib.Path("output_upsert_from_csv.sql")
@@ -63,8 +64,31 @@ def pg_literal(value):
     if isinstance(value, (int, float)):
         return str(value)
 
-    text = json.dumps(value, ensure_ascii=False) if isinstance(value, (list, dict)) else str(value)
+    if isinstance(value, (list, dict)):
+        # Keep JSON payload ASCII-safe for robust SQL execution.
+        text = json.dumps(value, ensure_ascii=True)
+    else:
+        text = sanitize_sql_text(str(value))
+
     return "'" + text.replace("'", "''") + "'"
+
+
+def sanitize_sql_text(text):
+    normalized = unicodedata.normalize("NFKD", text)
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+
+    cleaned_chars = []
+    for ch in ascii_text:
+        code = ord(ch)
+        if ch in ("\n", "\r", "\t"):
+            cleaned_chars.append(" ")
+            continue
+        if code < 32 or code == 127:
+            continue
+        cleaned_chars.append(ch)
+
+    cleaned = "".join(cleaned_chars)
+    return " ".join(cleaned.split())
 
 
 def main():

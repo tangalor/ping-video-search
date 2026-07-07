@@ -3,6 +3,14 @@
         "/^node --check script\\.js$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^cd /Users/tanganelli/Documents/ping && python3 - <<'PY'\nfrom pathlib import Path\n\nsrc = Path\\('output_upsert_from_csv\\.sql'\\)\nout_dir = Path\\('output_upsert_chunks'\\)\nchunk_size = 200\n\nlines = src\\.read_text\\(encoding='utf-8', errors='ignore'\\)\\.splitlines\\(\\)\ninserts = \\[ln for ln in lines if ln\\.startswith\\('INSERT INTO public\\.\"ping-video\" '\\)\\]\n\nout_dir\\.mkdir\\(parents=True, exist_ok=True\\)\nfor old in out_dir\\.glob\\('output_upsert_from_csv_part_\\*\\.sql'\\):\n    old\\.unlink\\(\\)\n\nfor idx, start in enumerate\\(range\\(0, len\\(inserts\\), chunk_size\\), start=1\\):\n    part = inserts\\[start:start \\+ chunk_size\\]\n    part_path = out_dir / f'output_upsert_from_csv_part_\\{idx:03d\\}\\.sql'\n    content = \\[\n        f'-- Auto-split from \\{src\\.name\\}',\n        f'-- Statements \\{start \\+ 1\\}\\.\\.\\{start \\+ len\\(part\\)\\} of \\{len\\(inserts\\)\\}',\n        'BEGIN;',\n        \\*part,\n        'COMMIT;',\n        '',\n    \\]\n    part_path\\.write_text\\('\\\\n'\\.join\\(content\\), encoding='utf-8'\\)\n\nprint\\(f'Creati \\{idx\\} chunk'\\)\n\n# Validate all literals close correctly\n\ndef literal_closed\\(sql: str\\) -> bool:\n    inside = False\n    i = 0\n    while i < len\\(sql\\):\n        c = sql\\[i\\]\n        if c == \"'\":\n            if inside and i \\+ 1 < len\\(sql\\) and sql\\[i \\+ 1\\] == \"'\":\n                i \\+= 2\n                continue\n            inside = not inside\n        i \\+= 1\n    return not inside\n\nbad = 0\nfor fp in sorted\\(out_dir\\.glob\\('output_upsert_from_csv_part_\\*\\.sql'\\)\\):\n    for line in fp\\.read_text\\(encoding='utf-8', errors='ignore'\\)\\.splitlines\\(\\):\n        if line\\.startswith\\('INSERT INTO public\\.\"ping-video\" '\\) and not literal_closed\\(line\\):\n            bad \\+= 1\n            print\\('Literal non chiuso in', fp\\.name\\)\n            break\n\nprint\\('INSERT con literal non chiuso:', bad\\)\nPY$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^bash -n aggiorna_dati\\.sh$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
