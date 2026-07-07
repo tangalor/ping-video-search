@@ -53,7 +53,7 @@ const homeBrandLinks = document.querySelectorAll(".home-brand-link");
 const SUPABASE_API_KEY = window.APP_CONFIG?.supabaseApiKey || "";
 const videoCache = new Map();
 const DEFAULT_PAGE_SIZE = 10;
-const LATEST_PAGE_SIZE = 30;
+const LATEST_PAGE_SIZE = DEFAULT_PAGE_SIZE;
 const BASE_PATH = getBasePath();
 
 let pagingState = {
@@ -1194,7 +1194,7 @@ async function loadPage(page, customTitle = "") {
   renderLoading();
   const pageSize = pagingState.mode === "latest" ? LATEST_PAGE_SIZE : DEFAULT_PAGE_SIZE;
   const safePage = Math.max(1, Number(page) || 1);
-  const requestedPage = pagingState.mode === "latest" ? 1 : safePage;
+  const requestedPage = safePage;
   const from = (requestedPage - 1) * pageSize;
 
   if (pagingState.mode === "search-local") {
@@ -1229,12 +1229,10 @@ async function loadPage(page, customTitle = "") {
   query.set("offset", String(from));
 
   try {
-    const useExactCount = pagingState.mode !== "latest";
+    const useExactCount = true;
     const result = await fetchRows(query.toString(), useExactCount);
     const rows = result.rows;
-    const totalItems = pagingState.mode === "latest"
-      ? rows.length
-      : (result.total ?? rows.length);
+    const totalItems = result.total ?? rows.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
     pagingState.currentPage = Math.min(requestedPage, totalPages);
@@ -1247,7 +1245,7 @@ async function loadPage(page, customTitle = "") {
     if (rows.length > 0) {
       if (pagingState.mode === "latest") {
         titleEl.textContent = "Video più recenti";
-        metaEl.textContent = "";
+        metaEl.textContent = `${totalItems} risultati • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
       } else {
         titleEl.textContent = pagingState.titleText || customTitle || "Risultati filtrati";
         metaEl.textContent = `${totalItems} risultati • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
