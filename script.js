@@ -54,6 +54,7 @@ const SUPABASE_API_KEY = window.APP_CONFIG?.supabaseApiKey || "";
 const videoCache = new Map();
 const DEFAULT_PAGE_SIZE = 10;
 const LATEST_PAGE_SIZE = DEFAULT_PAGE_SIZE;
+const LATEST_TOTAL_LIMIT = 30;
 const BASE_PATH = getBasePath();
 
 let pagingState = {
@@ -842,6 +843,17 @@ async function runSearch() {
     return;
   }
 
+  const matchedQuickRange = inferQuickRangeFromFilters({
+    q: text,
+    channels,
+    athletes,
+    tags,
+    dateFrom,
+    dateTo,
+    durationRange
+  });
+  setActiveQuickRange(matchedQuickRange);
+
   pagingState.titleText = buildSearchSummaryTitle({
     q: text,
     channels,
@@ -1221,21 +1233,39 @@ async function loadPage(page, customTitle = "") {
     return;
   }
 
-  const query = pagingState.mode === "search" && pagingState.lastSearchParams
-    ? new URLSearchParams(pagingState.lastSearchParams)
-    : new URLSearchParams("select=*&order=upload_date.desc.nullslast");
-
-  query.set("limit", String(pageSize));
-  query.set("offset", String(from));
-
   try {
-    const useExactCount = true;
-    const result = await fetchRows(query.toString(), useExactCount);
-    const rows = result.rows;
-    const totalItems = result.total ?? rows.length;
-    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    let rows = [];
+    let totalItems = 0;
+    let totalPages = 1;
 
-    pagingState.currentPage = Math.min(requestedPage, totalPages);
+    if (pagingState.mode === "latest") {
+      const latestQuery = new URLSearchParams("select=*&order=upload_date.desc.nullslast");
+      latestQuery.set("limit", String(LATEST_TOTAL_LIMIT));
+      latestQuery.set("offset", "0");
+
+      const result = await fetchRows(latestQuery.toString(), false);
+      const allLatestRows = Array.isArray(result.rows) ? result.rows : [];
+      totalItems = allLatestRows.length;
+      totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+      pagingState.currentPage = Math.min(requestedPage, totalPages);
+      const start = (pagingState.currentPage - 1) * pageSize;
+      rows = allLatestRows.slice(start, start + pageSize);
+    } else {
+      const query = pagingState.mode === "search" && pagingState.lastSearchParams
+        ? new URLSearchParams(pagingState.lastSearchParams)
+        : new URLSearchParams("select=*&order=upload_date.desc.nullslast");
+
+      query.set("limit", String(pageSize));
+      query.set("offset", String(from));
+
+      const result = await fetchRows(query.toString(), true);
+      rows = result.rows;
+      totalItems = result.total ?? rows.length;
+      totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+      pagingState.currentPage = Math.min(requestedPage, totalPages);
+    }
+
     pagingState.totalItems = totalItems;
     pagingState.totalPages = totalPages;
 
@@ -1245,7 +1275,7 @@ async function loadPage(page, customTitle = "") {
     if (rows.length > 0) {
       if (pagingState.mode === "latest") {
         titleEl.textContent = "Video più recenti";
-        metaEl.textContent = `${totalItems} risultati • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
+        metaEl.textContent = `${totalItems} risultati (ultimi ${LATEST_TOTAL_LIMIT}) • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
       } else {
         titleEl.textContent = pagingState.titleText || customTitle || "Risultati filtrati";
         metaEl.textContent = `${totalItems} risultati • Pagina ${pagingState.currentPage} di ${pagingState.totalPages}`;
@@ -1932,19 +1962,13 @@ function clearStatus() {
 }
 
 function scrollToResultsIfNeeded() {
-  if (!resultsSection || !titleEl) {
+  if (!titleEl) {
     return;
   }
 
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-  const titleRect = titleEl.getBoundingClientRect();
-  const titleIsVisible = titleRect.top >= 0 && titleRect.bottom <= viewportHeight;
-
-  if (titleIsVisible) {
-    return;
-  }
-
-  resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  const titleTop = window.scrollY + titleEl.getBoundingClientRect().top;
+  const targetTop = Math.max(0, titleTop - 8);
+  window.scrollTo({ top: targetTop, behavior: "smooth" });
 }
 
 function setupDateRangeInputs() {
@@ -2022,6 +2046,47 @@ function setActiveQuickRange(rangeKey) {
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   }
+}
+
+function inferQuickRangeFromFilters(filters) {
+  const safe = filters || {};
+  const hasText = Boolean(String(safe.q || "").trim());
+  const hasChannels = Array.isArray(safe.channels) && safe.channels.length > 0;
+  const hasAthletes = Array.isArray(safe.athletes) && safe.athletes.length > 0;
+  const hasTags = Array.isArray(safe.tags) && safe.tags.length > 0;
+  const hasDuration = Boolean(safe.durationRange);
+  const dateFrom = String(safe.dateFrom || "");
+  const dateTo = String(safe.dateTo || "");
+
+  if (hasText || hasChannels || hasAthletes || hasTags || hasDuration) {
+    return "";
+  }
+
+  if (!dateFrom && !dateTo) {
+    return "latest";
+  }
+
+  const todayIso = getTodayIsoDate();
+  if (dateTo !== todayIso) {
+    return "";
+  }
+
+  const toDate = new Date(`${todayIso}T00:00:00`);
+  const weekFrom = new Date(toDate);
+  weekFrom.setDate(weekFrom.getDate() - 6);
+
+  const monthFrom = new Date(toDate);
+  monthFrom.setMonth(monthFrom.getMonth() - 1);
+
+  if (dateFrom === toIsoDateLocal(weekFrom)) {
+    return "week";
+  }
+
+  if (dateFrom === toIsoDateLocal(monthFrom)) {
+    return "month";
+  }
+
+  return "";
 }
 
 function toIsoDateLocal(date) {
