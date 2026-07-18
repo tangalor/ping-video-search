@@ -71,6 +71,8 @@ let hasInitialLatestResults = false;
 let hasLoadedFilterOptions = false;
 let filterOptionsLoadPromise = null;
 let activeQuickRange = "latest";
+let indexedVideoCount = null;
+let releaseVersionValue = "--";
 
 const filterNoResultsState = {
   channel: false,
@@ -85,6 +87,7 @@ async function init() {
   bindEvents();
   await Promise.all([
     loadReleaseVersion(),
+    loadIndexedVideoCount(),
     syncViewWithRoute()
   ]);
 }
@@ -101,12 +104,44 @@ async function loadReleaseVersion() {
     }
 
     const version = (await response.text()).trim();
-    releaseVersionEl.textContent = version
-      ? `Versione rilascio: ${version}`
-      : "Versione rilascio: --";
+    releaseVersionValue = version || "--";
+    updateReleaseFooter();
   } catch {
-    releaseVersionEl.textContent = "Versione rilascio: --";
+    releaseVersionValue = "--";
+    updateReleaseFooter();
   }
+}
+
+async function loadIndexedVideoCount() {
+  if (!releaseVersionEl) {
+    return;
+  }
+
+  try {
+    const result = await fetchRows("select=id&limit=1&offset=0", true);
+    if (typeof result.total === "number") {
+      indexedVideoCount = result.total;
+    } else if (Array.isArray(result.rows)) {
+      indexedVideoCount = result.rows.length;
+    } else {
+      indexedVideoCount = null;
+    }
+  } catch {
+    indexedVideoCount = null;
+  }
+
+  updateReleaseFooter();
+}
+
+function updateReleaseFooter() {
+  if (!releaseVersionEl) {
+    return;
+  }
+
+  const countLabel = typeof indexedVideoCount === "number"
+    ? `${indexedVideoCount} video indicizzati / `
+    : "-- video indicizzati / ";
+  releaseVersionEl.textContent = `${countLabel}Versione rilascio: ${releaseVersionValue || "--"}`;
 }
 
 function bindEvents() {

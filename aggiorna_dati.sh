@@ -53,12 +53,14 @@ run_yt yt-dlp --playlist-end 10 --ignore-errors --no-download -t sleep --write-i
 run_yt yt-dlp --playlist-end 10 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@Top8TT"
 run_yt yt-dlp --playlist-end 20 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@TableSkills"
 run_yt yt-dlp --playlist-end 10 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@LucaLaNotteTTplayer"
-#yt-dlp --playlist-end 1000 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@TableTennisDaily"
-#yt-dlp --playlist-end 1000 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@tabletennisindependent3737"
-#yt-dlp --playlist-end 1000 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@TTtrix"
-#yt-dlp --playlist-end 1000 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@BeyondThePodiumOfficial"
-#yt-dlp --playlist-end 1000 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@giacomoizzo2007"
+run_yt yt-dlp --playlist-end 1000 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@TableTennisDaily"
+run_yt yt-dlp --playlist-end 1000 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@tabletennisindependent3737"
+run_yt yt-dlp --playlist-end 1000 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@TTtrix"
+run_yt yt-dlp --playlist-end 1000 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@BeyondThePodiumOfficial"
+run_yt yt-dlp --playlist-end 1000 --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "https://www.youtube.com/@giacomoizzo2007"
 
+#da rifare
+#TableTennisDaily e tttrix e seguenti
 
 #Grazie mille a questi canali YouTube:
 #ttlondon2012, ping-pong, ro-ning team RNG, GECA, lasha margveshvili, 
