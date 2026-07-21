@@ -1787,6 +1787,7 @@ function renderPagination(forceHide = false) {
         return;
       }
       await loadPage(page);
+      scrollToResultsIfNeeded({ defer: true });
     });
     pageNumbersEl.appendChild(btn);
   }
@@ -2250,6 +2251,8 @@ async function applyQuickDateRange(rangeKey) {
   if (!dateFromInput || !dateToInput) {
     return;
   }
+
+  await resetToInitialHome(false);
 
   const todayIso = getTodayIsoDate();
   const toDate = new Date(`${todayIso}T00:00:00`);
