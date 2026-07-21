@@ -2140,14 +2140,29 @@ function clearStatus() {
   statusEl.textContent = "";
 }
 
-function scrollToResultsIfNeeded() {
-  if (!titleEl) {
+function scrollToResultsIfNeeded({ defer = false } = {}) {
+  const runScroll = () => {
+    const anchor = resultsHeadEl && !resultsHeadEl.classList.contains("hidden")
+      ? resultsHeadEl
+      : resultsSection;
+
+    if (!anchor) {
+      return;
+    }
+
+    const anchorTop = window.scrollY + anchor.getBoundingClientRect().top;
+    const targetTop = Math.max(0, anchorTop - 8);
+    window.scrollTo({ top: targetTop, behavior: "smooth" });
+  };
+
+  if (!defer) {
+    runScroll();
     return;
   }
 
-  const titleTop = window.scrollY + titleEl.getBoundingClientRect().top;
-  const targetTop = Math.max(0, titleTop - 8);
-  window.scrollTo({ top: targetTop, behavior: "smooth" });
+  requestAnimationFrame(() => {
+    requestAnimationFrame(runScroll);
+  });
 }
 
 function setupDateRangeInputs() {
@@ -2226,7 +2241,7 @@ async function applyFooterQuickFilter(type, value) {
 
   showHomeView();
   await runSearch();
-  scrollToResultsIfNeeded();
+  scrollToResultsIfNeeded({ defer: true });
 }
 
 function setActiveQuickRange(rangeKey) {
