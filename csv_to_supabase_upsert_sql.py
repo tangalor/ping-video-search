@@ -31,11 +31,32 @@ def to_nullable_int(value):
         return None
 
 
+def clean_list_token(value):
+    text = sanitize_sql_text(str(value or ""))
+    if not text:
+        return ""
+
+    cleaned = text.translate(str.maketrans("", "", '[]"'))
+    return " ".join(cleaned.split()).strip()
+
+
 def to_list(value):
     text = to_nullable_string(value)
     if text is None:
         return []
-    return [part.strip() for part in text.split(" | ") if part.strip()]
+
+    if text.startswith("[") and text.endswith("]"):
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                tokens = [clean_list_token(item) for item in parsed]
+                return [item for item in tokens if item]
+        except (TypeError, json.JSONDecodeError):
+            pass
+
+    normalized_text = text.replace("|", ",")
+    tokens = [clean_list_token(part) for part in normalized_text.split(",")]
+    return [item for item in tokens if item]
 
 
 def normalize_row(raw):
@@ -44,7 +65,8 @@ def normalize_row(raw):
         if key in EXCLUDED_COLUMNS:
             continue
         if key in LIST_COLUMNS:
-            row[key] = to_list(value)
+            items = to_list(value)
+            row[key] = " | ".join(items) if items else None
         elif key in INT_COLUMNS:
             row[key] = to_nullable_int(value)
         else:
