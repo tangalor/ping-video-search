@@ -2,6 +2,7 @@ import json
 import os
 import glob
 import csv
+import sys
 import unicodedata
 from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
@@ -45,6 +46,11 @@ DIZIONARIO_ATLETI = [
 
 PERCORSO_ATLETI_EXTRA = "atleti_italiani.txt"
 PERCORSO_ATLETI_EXTRA_INVERTITI = "atleti_italiani_invertiti.txt"
+TRANSLATION_BAR_WIDTH = 34
+TRANSLATION_PANEL_LINES = 2
+translation_panel_rendered = False
+last_non_tty_pct_reported = -1
+translation_progress_stream = None
 
 
 def carica_atleti_extra(percorso_file):
@@ -109,6 +115,77 @@ def genera_varianti_nome_atleta(nome_atleta):
 
     return varianti
 
+
+def progress_bar(current, total, width=TRANSLATION_BAR_WIDTH):
+    total = max(1, int(total or 1))
+    current = max(0, min(int(current or 0), total))
+    filled = int(current * width / total)
+    return "#" * filled + "-" * (width - filled)
+
+
+def progress_pct(current, total):
+    total = max(1, int(total or 1))
+    current = max(0, min(int(current or 0), total))
+    return int(current * 100 / total)
+
+
+def trim_line(text, max_len=120):
+    testo = str(text or "")
+    if len(testo) <= max_len:
+        return testo
+    return f"{testo[:max_len - 3]}..."
+
+
+def get_progress_stream():
+    global translation_progress_stream
+
+    if translation_progress_stream is not None:
+        return translation_progress_stream
+
+    if sys.stdout.isatty():
+        translation_progress_stream = sys.stdout
+        return translation_progress_stream
+
+    try:
+        tty_stream = open("/dev/tty", "w", encoding="utf-8", buffering=1)
+        if tty_stream.isatty():
+            translation_progress_stream = tty_stream
+            return translation_progress_stream
+    except OSError:
+        pass
+
+    translation_progress_stream = None
+    return None
+
+
+def render_translation_panel(current, total, video_id, status):
+    global translation_panel_rendered
+    global last_non_tty_pct_reported
+
+    barra = progress_bar(current, total)
+    pct = progress_pct(current, total)
+    line1 = f"Traduzioni [{barra}] {pct:3d}% ({current}/{total})"
+    line2 = f"Video: {trim_line(video_id, 40)} | Stato: {trim_line(status, 72)}"
+
+    progress_stream = get_progress_stream()
+
+    if progress_stream is not None:
+        if translation_panel_rendered:
+            progress_stream.write(f"\x1b[{TRANSLATION_PANEL_LINES}A")
+        progress_stream.write(f"\r\x1b[2K{line1}\n")
+        progress_stream.write(f"\r\x1b[2K{line2}\n")
+        progress_stream.flush()
+        translation_panel_rendered = True
+    else:
+        should_print = (
+            current == 0
+            or current == total
+            or pct >= (last_non_tty_pct_reported + 2)
+        )
+        if should_print:
+            print(f"{line1} | {line2}", flush=True)
+            last_non_tty_pct_reported = pct
+
 def gestisci_lingue(testo):
     """Rileva la lingua e restituisce una tupla con la versione (italiano, inglese)"""
     if not testo or testo.strip() == "":
@@ -140,6 +217,9 @@ file_grezzi = glob.glob(os.path.join(cartella_grezza, "*.info.json"))
 print(f"Elaborazione, traduzione e pulizia di {len(file_grezzi)} file in corso...")
 totale_file = len(file_grezzi)
 
+if totale_file:
+    render_translation_panel(0, totale_file, "-", "In attesa")
+
 for indice, percorso_file in enumerate(file_grezzi, start=1):
     with open(percorso_file, 'r', encoding='utf-8') as f:
         grezzo = json.load(f)
@@ -148,8 +228,7 @@ for indice, percorso_file in enumerate(file_grezzi, start=1):
     titolo_originale = grezzo.get("title", "")
     descrizione_originale = grezzo.get("description", "")
 
-    percentuale = (indice / totale_file * 100) if totale_file else 100
-    print(f"Traduzione video {indice}/{totale_file} ({percentuale:.1f}%): {id_video}...")
+    render_translation_panel(indice - 1, totale_file, id_video, "Traduzione titolo e descrizione")
 
     # Elaboriamo le lingue per titolo e descrizione
     titolo_it, titolo_en = gestisci_lingue(titolo_originale)
@@ -186,6 +265,14 @@ for indice, percorso_file in enumerate(file_grezzi, start=1):
     nome_file_uscita = os.path.join(cartella_pulita, f"{id_video}.json")
     with open(nome_file_uscita, 'w', encoding='utf-8') as f_out:
         json.dump(json_su_misura, f_out, ensure_ascii=False, indent=4)
+
+    render_translation_panel(indice, totale_file, id_video, "Completato")
+
+if totale_file and sys.stdout.isatty():
+    stream = get_progress_stream()
+    if stream is not None:
+        stream.write("\n")
+        stream.flush()
 
 print(f"✅ Fatto! File multilingua salvati in '{cartella_pulita}'.")
 

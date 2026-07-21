@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=14" />
+  <link rel="stylesheet" href="styles.css?v=15" />
 </head>
 <body>
   <div class="bg-shape bg-shape-a"></div>
@@ -52,6 +52,7 @@
         </div>
 
         <div class="filters-link-row">
+          <p id="indexed-videos-inline" class="indexed-videos-inline">-- video indicizzati</p>
           <button
             id="filters-toggle-btn"
             class="filters-link-btn"
@@ -69,7 +70,7 @@
           <div class="filters-grid">
             <div class="field">
               <div class="filter-label-row">
-                <label for="channel-search">Canale <span id="channel-selected-count" class="filter-selected-count hidden"></span></label>
+                <label for="channel-search">Canali <span id="channel-total-count">(--)</span> <span id="channel-selected-count" class="filter-selected-count hidden"></span></label>
                 <button id="channel-clear-btn" class="filter-clear-icon hidden" type="button" aria-label="Rimuovi filtri canale">×</button>
               </div>
               <div class="channel-search-row">
@@ -90,7 +91,7 @@
 
             <div class="field">
               <div class="filter-label-row">
-                <label for="athlete-search">Atleta <span id="athlete-selected-count" class="filter-selected-count hidden"></span></label>
+                <label for="athlete-search">Atleti <span id="athlete-total-count">(--)</span> <span id="athlete-selected-count" class="filter-selected-count hidden"></span></label>
                 <button id="athlete-clear-btn" class="filter-clear-icon hidden" type="button" aria-label="Rimuovi filtri atleti">×</button>
               </div>
               <div class="athlete-search-row">
@@ -111,7 +112,7 @@
 
             <div class="field">
               <div class="filter-label-row">
-                <label for="tag-search">Tag <span id="tag-selected-count" class="filter-selected-count hidden"></span></label>
+                <label for="tag-search">Tag <span id="tag-total-count">(--)</span> <span id="tag-selected-count" class="filter-selected-count hidden"></span></label>
                 <button id="tag-clear-btn" class="filter-clear-icon hidden" type="button" aria-label="Rimuovi filtri tag">×</button>
               </div>
               <div class="tag-search-row">
@@ -192,6 +193,17 @@
         <button id="page-next" class="btn-secondary" type="button">Avanti</button>
       </nav>
       <hr class="results-divider" />
+      <section class="footer-quick-filters" aria-label="Filtri rapidi aggiuntivi">
+        <div class="footer-filter-group">
+          <h3>Canali <span id="footer-channel-total-count">(--)</span></h3>
+          <div id="footer-channel-links" class="footer-filter-links"></div>
+        </div>
+        <div class="footer-filter-group">
+          <h3>Atleti <span id="footer-athlete-total-count">(--)</span></h3>
+          <div id="footer-athlete-links" class="footer-filter-links"></div>
+        </div>
+      </section>
+      <hr class="results-divider results-divider-secondary" />
       <p id="release-version" class="release-version">Versione rilascio: --</p>
     </section>
 
@@ -242,6 +254,6 @@
   </template>
 
   <script src="config.local.js?v=5"></script>
-  <script src="script.js?v=27"></script>
+  <script src="script.js?v=29"></script>
 </body>
 </html>

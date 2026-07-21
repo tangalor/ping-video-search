@@ -9,6 +9,7 @@ const resultsHeadEl = document.querySelector(".results-head");
 const quickRangeLatestBtn = document.getElementById("quick-range-latest");
 const quickRangeWeekBtn = document.getElementById("quick-range-week");
 const quickRangeMonthBtn = document.getElementById("quick-range-month");
+const indexedVideosInlineEl = document.getElementById("indexed-videos-inline");
 const releaseVersionEl = document.getElementById("release-version");
 const resetBtn = document.getElementById("reset-btn");
 const heroSection = document.querySelector(".hero");
@@ -17,16 +18,21 @@ const channelOptionsEl = document.getElementById("channel-options");
 const channelSearchInput = document.getElementById("channel-search");
 const channelToggleBtn = document.getElementById("channel-toggle-btn");
 const channelClearBtn = document.getElementById("channel-clear-btn");
+const channelTotalCount = document.getElementById("channel-total-count");
+const footerChannelTotalCount = document.getElementById("footer-channel-total-count");
 const channelSelectedCount = document.getElementById("channel-selected-count");
 const athleteOptionsEl = document.getElementById("athlete");
 const athleteSearchInput = document.getElementById("athlete-search");
 const athleteToggleBtn = document.getElementById("athlete-toggle-btn");
 const athleteClearBtn = document.getElementById("athlete-clear-btn");
+const athleteTotalCount = document.getElementById("athlete-total-count");
+const footerAthleteTotalCount = document.getElementById("footer-athlete-total-count");
 const athleteSelectedCount = document.getElementById("athlete-selected-count");
 const tagOptionsEl = document.getElementById("tag-options");
 const tagSearchInput = document.getElementById("tag-search");
 const tagToggleBtn = document.getElementById("tag-toggle-btn");
 const tagClearBtn = document.getElementById("tag-clear-btn");
+const tagTotalCount = document.getElementById("tag-total-count");
 const tagSelectedCount = document.getElementById("tag-selected-count");
 const dateRangePanel = document.getElementById("date-range-panel");
 const dateRangeDisplay = document.getElementById("date-range-display");
@@ -47,6 +53,8 @@ const paginationEl = document.getElementById("pagination");
 const pagePrevBtn = document.getElementById("page-prev");
 const pageNextBtn = document.getElementById("page-next");
 const pageNumbersEl = document.getElementById("page-numbers");
+const footerChannelLinksEl = document.getElementById("footer-channel-links");
+const footerAthleteLinksEl = document.getElementById("footer-athlete-links");
 const filtersPanel = document.getElementById("filters-panel");
 const filtersToggleBtn = document.getElementById("filters-toggle-btn");
 const homeBrandLinks = document.querySelectorAll(".home-brand-link");
@@ -73,6 +81,10 @@ let filterOptionsLoadPromise = null;
 let activeQuickRange = "latest";
 let indexedVideoCount = null;
 let releaseVersionValue = "--";
+let footerChannelValues = [];
+let footerAthleteValues = [];
+let channelVideoCounts = new Map();
+let athleteVideoCounts = new Map();
 
 const filterNoResultsState = {
   channel: false,
@@ -134,14 +146,23 @@ async function loadIndexedVideoCount() {
 }
 
 function updateReleaseFooter() {
-  if (!releaseVersionEl) {
+  if (!releaseVersionEl && !indexedVideosInlineEl) {
     return;
   }
 
   const countLabel = typeof indexedVideoCount === "number"
     ? `${indexedVideoCount} video indicizzati / `
     : "-- video indicizzati / ";
-  releaseVersionEl.textContent = `${countLabel}Versione rilascio: ${releaseVersionValue || "--"}`;
+
+  if (indexedVideosInlineEl) {
+    indexedVideosInlineEl.textContent = typeof indexedVideoCount === "number"
+      ? `${indexedVideoCount} video indicizzati`
+      : "-- video indicizzati";
+  }
+
+  if (releaseVersionEl) {
+    releaseVersionEl.textContent = `${countLabel}Versione rilascio: ${releaseVersionValue || "--"}`;
+  }
 }
 
 function bindEvents() {
@@ -237,6 +258,28 @@ function bindEvents() {
   if (tagOptionsEl) {
     tagOptionsEl.addEventListener("change", () => {
       updateTagSelectionUi();
+    });
+  }
+
+  if (footerChannelLinksEl) {
+    footerChannelLinksEl.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-filter-value]");
+      if (!button) {
+        return;
+      }
+
+      await applyFooterQuickFilter("channel", button.dataset.filterValue || "");
+    });
+  }
+
+  if (footerAthleteLinksEl) {
+    footerAthleteLinksEl.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-filter-value]");
+      if (!button) {
+        return;
+      }
+
+      await applyFooterQuickFilter("athlete", button.dataset.filterValue || "");
     });
   }
 
@@ -372,6 +415,8 @@ async function loadFilterOptions() {
     const channelsByKey = new Map();
     const athletesByKey = new Map();
     const tagsByKey = new Map();
+    channelVideoCounts = new Map();
+    athleteVideoCounts = new Map();
 
     for (const row of rows) {
       if (row.channel) {
@@ -380,9 +425,13 @@ async function loadFilterOptions() {
         if (key && !channelsByKey.has(key)) {
           channelsByKey.set(key, channelName);
         }
+        if (key) {
+          channelVideoCounts.set(key, (channelVideoCounts.get(key) || 0) + 1);
+        }
       }
 
       const athleteNames = normalizeAthletesValue(row.atleti);
+      const athleteKeysForRow = new Set();
       for (const name of athleteNames) {
         const displayName = formatAthleteDisplayName(name);
         if (displayName && isValidAthleteOption(displayName)) {
@@ -390,7 +439,14 @@ async function loadFilterOptions() {
           if (key && !athletesByKey.has(key)) {
             athletesByKey.set(key, displayName);
           }
+          if (key) {
+            athleteKeysForRow.add(key);
+          }
         }
+      }
+
+      for (const athleteKey of athleteKeysForRow) {
+        athleteVideoCounts.set(athleteKey, (athleteVideoCounts.get(athleteKey) || 0) + 1);
       }
 
       const tagNames = normalizeTagsValue(row.tags);
@@ -404,8 +460,8 @@ async function loadFilterOptions() {
       }
     }
 
-    renderChannelOptions(sortAlphabetically([...channelsByKey.values()]));
-    renderAthleteOptions(sortAlphabetically([...athletesByKey.values()]));
+    renderChannelOptions(sortByVideoCount([...channelsByKey.values()], channelVideoCounts, normalizeSearchText));
+    renderAthleteOptions(sortByVideoCount([...athletesByKey.values()], athleteVideoCounts, buildAthleteCanonicalKey));
     renderTagOptions(sortAlphabetically([...tagsByKey.values()]));
   } catch (error) {
     showStatus("Impossibile caricare le opzioni filtro.");
@@ -416,6 +472,11 @@ async function loadFilterOptions() {
 }
 
 function renderChannelOptions(values) {
+  footerChannelValues = Array.isArray(values) ? [...values] : [];
+  renderFooterQuickLinks(footerChannelLinksEl, footerChannelValues, "channel");
+  updateFilterTotalCount(channelTotalCount, values.length);
+  updateFilterTotalCount(footerChannelTotalCount, values.length);
+
   if (!channelOptionsEl) {
     return;
   }
@@ -434,6 +495,7 @@ function renderChannelOptions(values) {
   for (const value of values) {
     const label = document.createElement("label");
     label.className = "channel-option";
+    label.dataset.searchLabel = value;
 
     const input = document.createElement("input");
     input.type = "checkbox";
@@ -441,7 +503,7 @@ function renderChannelOptions(values) {
     input.value = value;
 
     const text = document.createElement("span");
-    text.textContent = value;
+    text.textContent = formatFilterValueWithCount(value, getVideoCountForValue(value, channelVideoCounts, normalizeSearchText));
 
     label.appendChild(input);
     label.appendChild(text);
@@ -462,7 +524,7 @@ function filterChannelOptions(searchText) {
   let visibleCount = 0;
 
   for (const option of options) {
-    const labelText = option.textContent || "";
+    const labelText = option.dataset.searchLabel || option.textContent || "";
     const visible = !needle || normalizeSearchText(labelText).includes(needle);
     option.classList.toggle("hidden", !visible);
     if (visible) {
@@ -566,6 +628,46 @@ function updateTagSelectionUi() {
   );
 }
 
+function updateFilterTotalCount(countEl, total) {
+  if (!countEl) {
+    return;
+  }
+
+  countEl.textContent = `(${Number(total) || 0})`;
+}
+
+function renderFooterQuickLinks(container, values, type) {
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+
+  if (!Array.isArray(values) || values.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "footer-filter-empty";
+    empty.textContent = "Nessun filtro disponibile.";
+    container.appendChild(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const value of values) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "footer-filter-link";
+    button.dataset.filterType = type;
+    button.dataset.filterValue = value;
+    const countMap = type === "channel" ? channelVideoCounts : athleteVideoCounts;
+    const keyBuilder = type === "channel" ? normalizeSearchText : buildAthleteCanonicalKey;
+    button.textContent = formatFilterValueWithCount(value, getVideoCountForValue(value, countMap, keyBuilder));
+    fragment.appendChild(button);
+  }
+
+  container.appendChild(fragment);
+}
+
 function normalizeAthletesValue(value) {
   if (Array.isArray(value)) {
     return value.map((item) => String(item || "").trim()).filter(Boolean);
@@ -663,12 +765,45 @@ function sortAlphabetically(values) {
   return [...(values || [])].sort((a, b) => localeCompareIt(String(a || ""), String(b || "")));
 }
 
+function sortByVideoCount(values, countMap, keyBuilder) {
+  return [...(values || [])].sort((a, b) => {
+    const countDiff = getVideoCountForValue(b, countMap, keyBuilder) - getVideoCountForValue(a, countMap, keyBuilder);
+    if (countDiff !== 0) {
+      return countDiff;
+    }
+
+    return localeCompareIt(String(a || ""), String(b || ""));
+  });
+}
+
+function getVideoCountForValue(value, countMap, keyBuilder) {
+  if (!countMap || typeof keyBuilder !== "function") {
+    return 0;
+  }
+
+  const key = keyBuilder(value);
+  if (!key) {
+    return 0;
+  }
+
+  return Number(countMap.get(key) || 0);
+}
+
+function formatFilterValueWithCount(value, count) {
+  return `${value} (${Number(count) || 0})`;
+}
+
 function isTimeLikeTag(value) {
   const text = String(value || "").trim();
   return /^\d{1,2}[:.]\d{2}$/.test(text);
 }
 
 function renderAthleteOptions(values) {
+  footerAthleteValues = Array.isArray(values) ? [...values] : [];
+  renderFooterQuickLinks(footerAthleteLinksEl, footerAthleteValues, "athlete");
+  updateFilterTotalCount(athleteTotalCount, values.length);
+  updateFilterTotalCount(footerAthleteTotalCount, values.length);
+
   if (!athleteOptionsEl) {
     return;
   }
@@ -687,6 +822,7 @@ function renderAthleteOptions(values) {
   for (const value of values) {
     const label = document.createElement("label");
     label.className = "athlete-option";
+    label.dataset.searchLabel = value;
 
     const input = document.createElement("input");
     input.type = "checkbox";
@@ -694,7 +830,7 @@ function renderAthleteOptions(values) {
     input.value = value;
 
     const text = document.createElement("span");
-    text.textContent = value;
+    text.textContent = formatFilterValueWithCount(value, getVideoCountForValue(value, athleteVideoCounts, buildAthleteCanonicalKey));
 
     label.appendChild(input);
     label.appendChild(text);
@@ -715,7 +851,7 @@ function filterAthleteOptions(searchText) {
   let visibleCount = 0;
 
   for (const option of options) {
-    const labelText = option.textContent || "";
+    const labelText = option.dataset.searchLabel || option.textContent || "";
     const visible = !needle || normalizeSearchText(labelText).includes(needle);
     option.classList.toggle("hidden", !visible);
     if (visible) {
@@ -753,6 +889,8 @@ function setSelectedAthletes(values) {
 }
 
 function renderTagOptions(values) {
+  updateFilterTotalCount(tagTotalCount, values.length);
+
   if (!tagOptionsEl) {
     return;
   }
@@ -977,6 +1115,12 @@ function renderResults(rows) {
   const hasRows = Array.isArray(rows) && rows.length > 0;
   if (pagingState.mode === "latest" && hasRows) {
     hasInitialLatestResults = true;
+  }
+
+  if (hasRows && !hasLoadedFilterOptions) {
+    ensureFilterOptionsLoaded().catch(() => {
+      // Ignore footer quick links load errors here; the main results already rendered.
+    });
   }
 
   const keepHiddenForInitialLatest = pagingState.mode === "latest" && !hasInitialLatestResults;
@@ -2060,6 +2204,28 @@ async function applyQuickDateRange(rangeKey) {
 async function applyQuickLatestRange() {
   setActiveQuickRange("latest");
   await resetToInitialHome(false);
+  scrollToResultsIfNeeded();
+}
+
+async function applyFooterQuickFilter(type, value) {
+  const normalizedValue = String(value || "").trim();
+  if (!normalizedValue) {
+    return;
+  }
+
+  await ensureFilterOptionsLoaded();
+  await resetToInitialHome(false);
+
+  if (type === "channel") {
+    setSelectedChannels([normalizedValue]);
+  } else if (type === "athlete") {
+    setSelectedAthletes([normalizedValue]);
+  } else {
+    return;
+  }
+
+  showHomeView();
+  await runSearch();
   scrollToResultsIfNeeded();
 }
 

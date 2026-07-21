@@ -18,6 +18,8 @@ output_upsert_from_csv.sql
 .DS_Store
 .DS_Store/*
 
+logs/*
+
 __pycache__/*
 
 output_upsert_chunks/*
