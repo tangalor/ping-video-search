@@ -27,7 +27,6 @@ const athleteToggleBtn = document.getElementById("athlete-toggle-btn");
 const athleteClearBtn = document.getElementById("athlete-clear-btn");
 const athleteTotalCount = document.getElementById("athlete-total-count");
 const footerAthleteTotalCount = document.getElementById("footer-athlete-total-count");
-const footerTagTotalCount = document.getElementById("footer-tag-total-count");
 const athleteSelectedCount = document.getElementById("athlete-selected-count");
 const tagOptionsEl = document.getElementById("tag-options");
 const tagSearchInput = document.getElementById("tag-search");
@@ -56,7 +55,6 @@ const pageNextBtn = document.getElementById("page-next");
 const pageNumbersEl = document.getElementById("page-numbers");
 const footerChannelLinksEl = document.getElementById("footer-channel-links");
 const footerAthleteLinksEl = document.getElementById("footer-athlete-links");
-const footerTagLinksEl = document.getElementById("footer-tag-links");
 const filtersPanel = document.getElementById("filters-panel");
 const filtersToggleBtn = document.getElementById("filters-toggle-btn");
 const homeBrandLinks = document.querySelectorAll(".home-brand-link");
@@ -85,7 +83,6 @@ let indexedVideoCount = null;
 let releaseVersionValue = "--";
 let footerChannelValues = [];
 let footerAthleteValues = [];
-let footerTagValues = [];
 let channelVideoCounts = new Map();
 let athleteVideoCounts = new Map();
 let tagVideoCounts = new Map();
@@ -284,17 +281,6 @@ function bindEvents() {
       }
 
       await applyFooterQuickFilter("athlete", button.dataset.filterValue || "");
-    });
-  }
-
-  if (footerTagLinksEl) {
-    footerTagLinksEl.addEventListener("click", async (event) => {
-      const button = event.target.closest("button[data-filter-value]");
-      if (!button) {
-        return;
-      }
-
-      await applyFooterQuickFilter("tag", button.dataset.filterValue || "");
     });
   }
 
@@ -528,7 +514,13 @@ function renderChannelOptions(values) {
 
     const text = document.createElement("span");
     text.className = "filter-option-text";
-    appendLabelWithCount(text, value, getVideoCountForValue(value, channelVideoCounts, normalizeSearchText), "filter-option-count");
+    appendLabelWithCount(
+      text,
+      value,
+      getVideoCountForValue(value, channelVideoCounts, normalizeSearchText),
+      "filter-option-count",
+      "Video associati al canale"
+    );
 
     label.appendChild(input);
     label.appendChild(text);
@@ -694,7 +686,18 @@ function renderFooterQuickLinks(container, values, type) {
       keyBuilder = buildAthleteCanonicalKey;
     }
 
-    appendLabelWithCount(button, value, getVideoCountForValue(value, countMap, keyBuilder), "footer-filter-count");
+    const count = getVideoCountForValue(value, countMap, keyBuilder);
+    let typeLabel = "tag";
+    if (type === "channel") {
+      typeLabel = "canale";
+    } else if (type === "athlete") {
+      typeLabel = "atleta";
+    }
+    button.title = `Filtra per ${typeLabel}: ${value}. Video associati: ${count}.`;
+    button.setAttribute("aria-label", `Filtra per ${typeLabel} ${value}. ${count} video associati.`);
+    button.classList.add("has-tooltip");
+    button.dataset.tooltip = `${count} video associati`;
+    appendLabelWithCount(button, value, count, "footer-filter-count", "Video associati");
     fragment.appendChild(button);
   }
 
@@ -826,14 +829,16 @@ function formatFilterValueWithCount(value, count) {
   return `${value} (${Number(count) || 0})`;
 }
 
-function appendLabelWithCount(target, value, count, countClassName) {
+function appendLabelWithCount(target, value, count, countClassName, tooltipPrefix = "Video associati") {
+  const numericCount = Number(count) || 0;
+
   const labelSpan = document.createElement("span");
   labelSpan.className = "option-label";
   labelSpan.textContent = value;
 
   const countSpan = document.createElement("span");
   countSpan.className = countClassName;
-  countSpan.textContent = `(${Number(count) || 0})`;
+  countSpan.textContent = `(${numericCount})`;
 
   target.appendChild(labelSpan);
   target.appendChild(countSpan);
@@ -877,7 +882,13 @@ function renderAthleteOptions(values) {
 
     const text = document.createElement("span");
     text.className = "filter-option-text";
-    appendLabelWithCount(text, value, getVideoCountForValue(value, athleteVideoCounts, buildAthleteCanonicalKey), "filter-option-count");
+    appendLabelWithCount(
+      text,
+      value,
+      getVideoCountForValue(value, athleteVideoCounts, buildAthleteCanonicalKey),
+      "filter-option-count",
+      "Video associati all'atleta"
+    );
 
     label.appendChild(input);
     label.appendChild(text);
@@ -936,10 +947,7 @@ function setSelectedAthletes(values) {
 }
 
 function renderTagOptions(values) {
-  footerTagValues = Array.isArray(values) ? [...values] : [];
-  renderFooterQuickLinks(footerTagLinksEl, footerTagValues, "tag");
   updateFilterTotalCount(tagTotalCount, values.length);
-  updateFilterTotalCount(footerTagTotalCount, values.length);
 
   if (!tagOptionsEl) {
     return;
@@ -968,7 +976,13 @@ function renderTagOptions(values) {
 
     const text = document.createElement("span");
     text.className = "filter-option-text";
-    appendLabelWithCount(text, value, getVideoCountForValue(value, tagVideoCounts, normalizeSearchText), "filter-option-count");
+    appendLabelWithCount(
+      text,
+      value,
+      getVideoCountForValue(value, tagVideoCounts, normalizeSearchText),
+      "filter-option-count",
+      "Video associati al tag"
+    );
 
     label.appendChild(input);
     label.appendChild(text);
