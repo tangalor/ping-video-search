@@ -420,6 +420,24 @@ body {
   transition: transform 140ms ease;
 }
 
+.filter-option-text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.option-label {
+  min-width: 0;
+}
+
+.filter-option-count {
+  font-size: 0.78em;
+  font-weight: 600;
+  color: #6a7480;
+  white-space: nowrap;
+}
+
 .athlete-toggle-btn[aria-expanded="true"] span {
   transform: rotate(180deg);
 }
@@ -591,6 +609,13 @@ body {
   gap: 0.35rem;
   flex: 1;
   min-width: 0;
+}
+
+.filter-total-count {
+  font-size: 0.78em;
+  font-weight: 600;
+  color: #66727e;
+  letter-spacing: 0.01em;
 }
 
 .filter-selected-count {
@@ -937,6 +962,10 @@ body {
   font-size: 1rem;
 }
 
+.footer-filter-group h3 .filter-total-count {
+  font-size: 0.72em;
+}
+
 .footer-filter-links {
   display: flex;
   flex-wrap: wrap;
@@ -953,6 +982,13 @@ body {
   font-weight: 700;
   cursor: pointer;
   transition: transform 120ms ease, border-color 120ms ease, background-color 120ms ease;
+}
+
+.footer-filter-link .footer-filter-count {
+  font-size: 0.78em;
+  font-weight: 600;
+  color: #58707b;
+  margin-left: 0.24rem;
 }
 
 .footer-filter-link:hover {

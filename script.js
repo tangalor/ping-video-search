@@ -27,6 +27,7 @@ const athleteToggleBtn = document.getElementById("athlete-toggle-btn");
 const athleteClearBtn = document.getElementById("athlete-clear-btn");
 const athleteTotalCount = document.getElementById("athlete-total-count");
 const footerAthleteTotalCount = document.getElementById("footer-athlete-total-count");
+const footerTagTotalCount = document.getElementById("footer-tag-total-count");
 const athleteSelectedCount = document.getElementById("athlete-selected-count");
 const tagOptionsEl = document.getElementById("tag-options");
 const tagSearchInput = document.getElementById("tag-search");
@@ -55,6 +56,7 @@ const pageNextBtn = document.getElementById("page-next");
 const pageNumbersEl = document.getElementById("page-numbers");
 const footerChannelLinksEl = document.getElementById("footer-channel-links");
 const footerAthleteLinksEl = document.getElementById("footer-athlete-links");
+const footerTagLinksEl = document.getElementById("footer-tag-links");
 const filtersPanel = document.getElementById("filters-panel");
 const filtersToggleBtn = document.getElementById("filters-toggle-btn");
 const homeBrandLinks = document.querySelectorAll(".home-brand-link");
@@ -83,8 +85,10 @@ let indexedVideoCount = null;
 let releaseVersionValue = "--";
 let footerChannelValues = [];
 let footerAthleteValues = [];
+let footerTagValues = [];
 let channelVideoCounts = new Map();
 let athleteVideoCounts = new Map();
+let tagVideoCounts = new Map();
 
 const filterNoResultsState = {
   channel: false,
@@ -283,6 +287,17 @@ function bindEvents() {
     });
   }
 
+  if (footerTagLinksEl) {
+    footerTagLinksEl.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-filter-value]");
+      if (!button) {
+        return;
+      }
+
+      await applyFooterQuickFilter("tag", button.dataset.filterValue || "");
+    });
+  }
+
   if (dateFromInput) {
     dateFromInput.addEventListener("change", () => {
       normalizeDateRange("from");
@@ -417,6 +432,7 @@ async function loadFilterOptions() {
     const tagsByKey = new Map();
     channelVideoCounts = new Map();
     athleteVideoCounts = new Map();
+    tagVideoCounts = new Map();
 
     for (const row of rows) {
       if (row.channel) {
@@ -450,13 +466,21 @@ async function loadFilterOptions() {
       }
 
       const tagNames = normalizeTagsValue(row.tags);
+      const tagKeysForRow = new Set();
       for (const name of tagNames) {
         if (name && !isTimeLikeTag(name)) {
           const key = normalizeSearchText(name);
           if (key && !tagsByKey.has(key)) {
             tagsByKey.set(key, name);
           }
+          if (key) {
+            tagKeysForRow.add(key);
+          }
         }
+      }
+
+      for (const tagKey of tagKeysForRow) {
+        tagVideoCounts.set(tagKey, (tagVideoCounts.get(tagKey) || 0) + 1);
       }
     }
 
@@ -503,7 +527,8 @@ function renderChannelOptions(values) {
     input.value = value;
 
     const text = document.createElement("span");
-    text.textContent = formatFilterValueWithCount(value, getVideoCountForValue(value, channelVideoCounts, normalizeSearchText));
+    text.className = "filter-option-text";
+    appendLabelWithCount(text, value, getVideoCountForValue(value, channelVideoCounts, normalizeSearchText), "filter-option-count");
 
     label.appendChild(input);
     label.appendChild(text);
@@ -633,7 +658,7 @@ function updateFilterTotalCount(countEl, total) {
     return;
   }
 
-  countEl.textContent = `(${Number(total) || 0})`;
+  countEl.textContent = `(${Number(total) || 0} totali)`;
 }
 
 function renderFooterQuickLinks(container, values, type) {
@@ -659,9 +684,17 @@ function renderFooterQuickLinks(container, values, type) {
     button.className = "footer-filter-link";
     button.dataset.filterType = type;
     button.dataset.filterValue = value;
-    const countMap = type === "channel" ? channelVideoCounts : athleteVideoCounts;
-    const keyBuilder = type === "channel" ? normalizeSearchText : buildAthleteCanonicalKey;
-    button.textContent = formatFilterValueWithCount(value, getVideoCountForValue(value, countMap, keyBuilder));
+    let countMap = tagVideoCounts;
+    let keyBuilder = normalizeSearchText;
+
+    if (type === "channel") {
+      countMap = channelVideoCounts;
+    } else if (type === "athlete") {
+      countMap = athleteVideoCounts;
+      keyBuilder = buildAthleteCanonicalKey;
+    }
+
+    appendLabelWithCount(button, value, getVideoCountForValue(value, countMap, keyBuilder), "footer-filter-count");
     fragment.appendChild(button);
   }
 
@@ -793,6 +826,19 @@ function formatFilterValueWithCount(value, count) {
   return `${value} (${Number(count) || 0})`;
 }
 
+function appendLabelWithCount(target, value, count, countClassName) {
+  const labelSpan = document.createElement("span");
+  labelSpan.className = "option-label";
+  labelSpan.textContent = value;
+
+  const countSpan = document.createElement("span");
+  countSpan.className = countClassName;
+  countSpan.textContent = `(${Number(count) || 0})`;
+
+  target.appendChild(labelSpan);
+  target.appendChild(countSpan);
+}
+
 function isTimeLikeTag(value) {
   const text = String(value || "").trim();
   return /^\d{1,2}[:.]\d{2}$/.test(text);
@@ -830,7 +876,8 @@ function renderAthleteOptions(values) {
     input.value = value;
 
     const text = document.createElement("span");
-    text.textContent = formatFilterValueWithCount(value, getVideoCountForValue(value, athleteVideoCounts, buildAthleteCanonicalKey));
+    text.className = "filter-option-text";
+    appendLabelWithCount(text, value, getVideoCountForValue(value, athleteVideoCounts, buildAthleteCanonicalKey), "filter-option-count");
 
     label.appendChild(input);
     label.appendChild(text);
@@ -889,7 +936,10 @@ function setSelectedAthletes(values) {
 }
 
 function renderTagOptions(values) {
+  footerTagValues = Array.isArray(values) ? [...values] : [];
+  renderFooterQuickLinks(footerTagLinksEl, footerTagValues, "tag");
   updateFilterTotalCount(tagTotalCount, values.length);
+  updateFilterTotalCount(footerTagTotalCount, values.length);
 
   if (!tagOptionsEl) {
     return;
@@ -909,6 +959,7 @@ function renderTagOptions(values) {
   for (const value of values) {
     const label = document.createElement("label");
     label.className = "tag-option";
+    label.dataset.searchLabel = value;
 
     const input = document.createElement("input");
     input.type = "checkbox";
@@ -916,7 +967,8 @@ function renderTagOptions(values) {
     input.value = value;
 
     const text = document.createElement("span");
-    text.textContent = value;
+    text.className = "filter-option-text";
+    appendLabelWithCount(text, value, getVideoCountForValue(value, tagVideoCounts, normalizeSearchText), "filter-option-count");
 
     label.appendChild(input);
     label.appendChild(text);
@@ -937,7 +989,7 @@ function filterTagOptions(searchText) {
   let visibleCount = 0;
 
   for (const option of options) {
-    const labelText = option.textContent || "";
+    const labelText = option.dataset.searchLabel || option.textContent || "";
     const visible = !needle || normalizeSearchText(labelText).includes(needle);
     option.classList.toggle("hidden", !visible);
     if (visible) {
@@ -2235,6 +2287,8 @@ async function applyFooterQuickFilter(type, value) {
     setSelectedChannels([normalizedValue]);
   } else if (type === "athlete") {
     setSelectedAthletes([normalizedValue]);
+  } else if (type === "tag") {
+    setSelectedTags([normalizedValue]);
   } else {
     return;
   }
