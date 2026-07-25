@@ -64,6 +64,7 @@ const DEFAULT_PAGE_SIZE = 10;
 const LATEST_PAGE_SIZE = DEFAULT_PAGE_SIZE;
 const LATEST_TOTAL_LIMIT = 30;
 const BASE_PATH = getBasePath();
+const FOOTER_ATHLETE_MIN_VISIBLE_VIDEOS = 10;
 
 let pagingState = {
   mode: "latest",
@@ -83,6 +84,7 @@ let indexedVideoCount = null;
 let releaseVersionValue = "--";
 let footerChannelValues = [];
 let footerAthleteValues = [];
+let footerAthletesExpanded = false;
 let channelVideoCounts = new Map();
 let athleteVideoCounts = new Map();
 let tagVideoCounts = new Map();
@@ -275,6 +277,13 @@ function bindEvents() {
 
   if (footerAthleteLinksEl) {
     footerAthleteLinksEl.addEventListener("click", async (event) => {
+      const expandButton = event.target.closest("button[data-action='expand-athletes']");
+      if (expandButton) {
+        footerAthletesExpanded = true;
+        renderFooterQuickLinks(footerAthleteLinksEl, footerAthleteValues, "athlete");
+        return;
+      }
+
       const button = event.target.closest("button[data-filter-value]");
       if (!button) {
         return;
@@ -669,8 +678,9 @@ function renderFooterQuickLinks(container, values, type) {
   }
 
   const fragment = document.createDocumentFragment();
+  const visibleValues = getVisibleFooterQuickLinkValues(values, type);
 
-  for (const value of values) {
+  for (const value of visibleValues) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "footer-filter-link";
@@ -701,7 +711,26 @@ function renderFooterQuickLinks(container, values, type) {
     fragment.appendChild(button);
   }
 
+  if (type === "athlete" && !footerAthletesExpanded && visibleValues.length < values.length) {
+    const moreButton = document.createElement("button");
+    moreButton.type = "button";
+    moreButton.className = "footer-filter-more-btn";
+    moreButton.dataset.action = "expand-athletes";
+    moreButton.textContent = "Mostra di piu";
+    fragment.appendChild(moreButton);
+  }
+
   container.appendChild(fragment);
+}
+
+function getVisibleFooterQuickLinkValues(values, type) {
+  if (type !== "athlete" || footerAthletesExpanded) {
+    return values;
+  }
+
+  return values.filter(
+    (value) => getVideoCountForValue(value, athleteVideoCounts, buildAthleteCanonicalKey) >= FOOTER_ATHLETE_MIN_VISIBLE_VIDEOS
+  );
 }
 
 function normalizeAthletesValue(value) {
@@ -851,6 +880,7 @@ function isTimeLikeTag(value) {
 
 function renderAthleteOptions(values) {
   footerAthleteValues = Array.isArray(values) ? [...values] : [];
+  footerAthletesExpanded = false;
   renderFooterQuickLinks(footerAthleteLinksEl, footerAthleteValues, "athlete");
   updateFilterTotalCount(athleteTotalCount, values.length);
   updateFilterTotalCount(footerAthleteTotalCount, values.length);
@@ -1786,8 +1816,10 @@ function renderPagination(forceHide = false) {
       if (page === pagingState.currentPage) {
         return;
       }
+      btn.blur();
+      scrollToResultsIfNeeded({ behavior: "auto" });
       await loadPage(page);
-      scrollToResultsIfNeeded({ defer: true });
+      scrollToResultsIfNeeded({ defer: true, behavior: "auto" });
     });
     pageNumbersEl.appendChild(btn);
   }
@@ -2207,7 +2239,7 @@ function clearStatus() {
   statusEl.textContent = "";
 }
 
-function scrollToResultsIfNeeded({ defer = false } = {}) {
+function scrollToResultsIfNeeded({ defer = false, behavior = "smooth" } = {}) {
   const runScroll = () => {
     const anchor = resultsHeadEl && !resultsHeadEl.classList.contains("hidden")
       ? resultsHeadEl
@@ -2219,7 +2251,7 @@ function scrollToResultsIfNeeded({ defer = false } = {}) {
 
     const anchorTop = window.scrollY + anchor.getBoundingClientRect().top;
     const targetTop = Math.max(0, anchorTop - 8);
-    window.scrollTo({ top: targetTop, behavior: "smooth" });
+    window.scrollTo({ top: targetTop, behavior });
   };
 
   if (!defer) {

@@ -1009,6 +1009,28 @@ body {
   outline-offset: 2px;
 }
 
+.footer-filter-more-btn {
+  border: 0;
+  background: transparent;
+  color: #177e89;
+  font-size: 0.84rem;
+  font-weight: 800;
+  padding: 0.42rem 0.1rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+}
+
+.footer-filter-more-btn:hover {
+  color: #125e68;
+}
+
+.footer-filter-more-btn:focus-visible {
+  outline: 2px solid rgba(23, 126, 137, 0.35);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 .has-tooltip {
   position: relative;
 }

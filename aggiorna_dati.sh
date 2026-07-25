@@ -196,7 +196,7 @@ render_yt_panel() {
 
   line1="${COLOR_CYAN}Canali${COLOR_RESET} [${COLOR_CYAN}${channel_bar}${COLOR_RESET}] $(printf '%3d' "$channel_pct")% (${channel_index}/${total_channels}) ${COLOR_MAGENTA}ETA totale: $(format_duration "$total_eta")${COLOR_RESET}"
   line2="${COLOR_GREEN}Video ${COLOR_RESET} [${COLOR_GREEN}${video_bar}${COLOR_RESET}] $(printf '%3d' "$video_pct")% (${video_index}/${video_total}) ${COLOR_MAGENTA}ETA canale: $(format_duration "$channel_eta")${COLOR_RESET}"
-  line3="${COLOR_YELLOW}Video corrente:${COLOR_RESET} $(trim_line "$video_info")"
+  line3="${COLOR_YELLOW}Canale corrente:${COLOR_RESET} $(trim_line "$video_info")"
   line4="${COLOR_DIM}Log:${COLOR_RESET} $(trim_line "$last_log")"
 
   print_panel_line "$line1"
@@ -216,7 +216,7 @@ run_yt_channel_with_progress() {
   local fallback_total="$playlist_end"
   local current_video=0
   local detected_total="$fallback_total"
-  local video_info="In elaborazione"
+  local channel_info="Canale in elaborazione: ${channel_label}"
   local last_log="Avvio yt-dlp"
   local yt_exit_code=0
   local channel_start_sec channel_elapsed total_elapsed now_sec
@@ -230,7 +230,7 @@ run_yt_channel_with_progress() {
   channel_eta=-1
   total_eta=-1
 
-  render_yt_panel "$channel_index" "$total_channels" "$channel_label" 0 "$fallback_total" "Canale avviato: ${channel_label}" "Preparazione..." "$channel_eta" "$total_eta"
+  render_yt_panel "$channel_index" "$total_channels" "$channel_label" 0 "$fallback_total" "$channel_info" "Preparazione..." "$channel_eta" "$total_eta"
   last_render_sec="$SECONDS"
 
   while IFS= read -r line; do
@@ -251,7 +251,6 @@ run_yt_channel_with_progress() {
     if [[ "$clean_line" =~ Downloading[[:space:]]+(video|item)[[:space:]]+([0-9]+)[[:space:]]+of[[:space:]]+([0-9]+) ]]; then
       current_video="${BASH_REMATCH[2]}"
       detected_total="${BASH_REMATCH[3]}"
-      video_info="Elemento ${current_video}/${detected_total}"
       last_log="$clean_line"
       should_render=1
       force_render=1
@@ -280,7 +279,7 @@ run_yt_channel_with_progress() {
     total_units_total=$(( total_channels * 1000 ))
     total_eta="$(estimate_eta_seconds "$total_elapsed" "$total_units_done" "$total_units_total")"
 
-    render_yt_panel "$channel_index" "$total_channels" "$channel_label" "$current_video" "$detected_total" "$video_info" "$last_log" "$channel_eta" "$total_eta"
+    render_yt_panel "$channel_index" "$total_channels" "$channel_label" "$current_video" "$detected_total" "$channel_info" "$last_log" "$channel_eta" "$total_eta"
   done < <(
     set +e
     yt-dlp --playlist-end "$playlist_end" --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "$channel_url" 2>&1
@@ -293,7 +292,7 @@ run_yt_channel_with_progress() {
     total_units_done=$(( channel_index * 1000 ))
     total_units_total=$(( total_channels * 1000 ))
     total_eta="$(estimate_eta_seconds "$total_elapsed" "$total_units_done" "$total_units_total")"
-    render_yt_panel "$channel_index" "$total_channels" "$channel_label" "$detected_total" "$detected_total" "Canale completato" "Completato" 0 "$total_eta"
+    render_yt_panel "$channel_index" "$total_channels" "$channel_label" "$detected_total" "$detected_total" "$channel_info" "Completato" 0 "$total_eta"
     log_msg "Canale completato: ${channel_url}"
   else
     now_sec="$SECONDS"
@@ -301,7 +300,7 @@ run_yt_channel_with_progress() {
     total_units_done=$(( (channel_index - 1) * 1000 + ( current_video * 1000 / (detected_total > 0 ? detected_total : 1) ) ))
     total_units_total=$(( total_channels * 1000 ))
     total_eta="$(estimate_eta_seconds "$total_elapsed" "$total_units_done" "$total_units_total")"
-    render_yt_panel "$channel_index" "$total_channels" "$channel_label" "$current_video" "$detected_total" "Errore durante il canale" "Errore (exit ${yt_exit_code})" "$channel_eta" "$total_eta"
+    render_yt_panel "$channel_index" "$total_channels" "$channel_label" "$current_video" "$detected_total" "$channel_info" "Errore (exit ${yt_exit_code})" "$channel_eta" "$total_eta"
     log_msg "Errore canale (exit ${yt_exit_code}): ${channel_url}"
     echo " - ATTENZIONE: comando fallito, continuo comunque:" >&2
     echo "   yt-dlp --playlist-end $playlist_end ... $channel_url" >&2
@@ -369,19 +368,19 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
   log_msg "[3/6] Raccolta dati con yt-dlp"
   YT_CHANNEL_SPECS=(
   "40|https://www.youtube.com/@pingpongstyles"
-  "60|https://www.youtube.com/@Fitetofficial"
+  #"4500|https://www.youtube.com/@Fitetofficial"
   "60|https://www.youtube.com/@wttglobal"
-  "1400|https://www.youtube.com/@ettutvofficial"
-  "1000|https://www.youtube.com/@Learn_TableTennis"
+  #"1400|https://www.youtube.com/@ettutvofficial"
+  #"1000|https://www.youtube.com/@Learn_TableTennis"
   "30|https://www.youtube.com/@MilanoSportTT"
-  "1000|https://www.youtube.com/@tt-topspinmessina7289"
-  "1000|https://www.youtube.com/@tennistavolosassari3889"
-  "1000|https://www.youtube.com/@tennistavolovigevano"
-  "1000|https://www.youtube.com/@ttnulvi"
-  "1000|https://www.youtube.com/@muraveratennistavolo8062"
-  "1000|https://www.youtube.com/@ASDNewTTPieveEmanuele"
-  "1000|https://www.youtube.com/@videotttorino8111"
-  "1000|https://www.youtube.com/@tennistavolocastelgoffredo3697"
+  #"1000|https://www.youtube.com/@tt-topspinmessina7289"
+  #"1000|https://www.youtube.com/@tennistavolosassari3889"
+  #"1000|https://www.youtube.com/@tennistavolovigevano"
+  #"1000|https://www.youtube.com/@ttnulvi"
+  #"1000|https://www.youtube.com/@muraveratennistavolo8062"
+  #"1000|https://www.youtube.com/@ASDNewTTPieveEmanuele"
+  #"1000|https://www.youtube.com/@videotttorino8111"
+  #"1000|https://www.youtube.com/@tennistavolocastelgoffredo3697"
   "30|https://www.youtube.com/@YouPongOfficial"
   "30|https://www.youtube.com/@tabletennis69"
   "30|https://www.youtube.com/@GiacomoCerea"
@@ -396,32 +395,31 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
   "50|https://www.youtube.com/@TTtrix"
   "50|https://www.youtube.com/@BeyondThePodiumOfficial"
   "50|https://www.youtube.com/@giacomoizzo2007"
-  "1000|https://www.youtube.com/@ZeroNet-TTCARTURA"
+  #"1000|https://www.youtube.com/@ZeroNet-TTCARTURA"
   "200|https://www.youtube.com/@Dr.PsyPong" # Filippo Marchese
-  "3500|https://www.youtube.com/@ITTFWorld"
-  "1800|https://www.youtube.com/@TableTennisEngland"
+  #"3500|https://www.youtube.com/@ITTFWorld"
+  #"1800|https://www.youtube.com/@TableTennisEngland"
   "200|https://www.youtube.com/@AndreasLevenko"
   "400|https://www.youtube.com/@tabletennisdailyplus"
   "100|https://www.youtube.com/@TableTennisDailyCast"
   "150|https://www.youtube.com/@PongFoxTabletennis"
   "100|https://www.youtube.com/@World.Table.Tennis"
   "100|https://www.youtube.com/@SpinClips"
-  "4500|https://www.youtube.com/@TtblDe" # bundesliga
-  "1400|https://www.youtube.com/@malonfanmadechannel" # ma long fan made channel
-  "1800|https://www.youtube.com/@ttlondon2012" 
+  #"4500|https://www.youtube.com/@TtblDe" # bundesliga
+  #"1400|https://www.youtube.com/@malonfanmadechannel" # ma long fan made channel
+  #"1800|https://www.youtube.com/@ttlondon2012" 
   "150|https://www.youtube.com/@MagnusEffectTT"
-  "1200|https://www.youtube.com/@DiegoTTTube"
+  #"1200|https://www.youtube.com/@DiegoTTTube"
   "300|https://www.youtube.com/@ttjapan3023"
   "80|https://www.youtube.com/@perdagermo734" #alcuni video sono da cancellare perchè riguardano concerti
   "450|https://www.youtube.com/@GecaPhoenix" 
   "50|https://www.youtube.com/@GecaPhoenix2"
   "500|https://www.youtube.com/@ttstars"
-  "1400|https://www.youtube.com/@TTSTARSERIES" 
+  #"1400|https://www.youtube.com/@TTSTARSERIES" 
   "10|https://www.youtube.com/@TTCrazyShot"
-
-  
-
-
+  "200|https://www.youtube.com/@OlavKTTT"
+  "140|https://www.youtube.com/@pingponggoris"
+  "350|https://www.youtube.com/@AugustinePingPong"
   )
 
   YT_COLLECTION_START_SEC="$SECONDS"
