@@ -420,7 +420,7 @@ async function loadFilterOptions() {
     const query = new URLSearchParams();
     query.set("select", "channel,atleti,tags");
     query.set("order", "channel.asc");
-    const rows = await fetchAllRows(query, 500, 10000);
+    const rows = await fetchAllRows(query, 500);
 
     const channelsByKey = new Map();
     const athletesByKey = new Map();
@@ -1951,11 +1951,11 @@ function toPostgrestInValues(values) {
   return `(${items.join(",")})`;
 }
 
-async function fetchAllRows(baseQuery, batchSize = 500, maxRows = 5000) {
+async function fetchAllRows(baseQuery, batchSize = 500, maxRows = null) {
   const allRows = [];
   let offset = 0;
 
-  while (offset < maxRows) {
+  while (maxRows == null || offset < maxRows) {
     const query = new URLSearchParams(baseQuery);
     query.set("limit", String(batchSize));
     query.set("offset", String(offset));
