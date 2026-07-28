@@ -1141,7 +1141,7 @@ async function runSearch() {
     clearStatus();
     renderLoading();
     try {
-      const candidates = await fetchAllRows(query, 500, 5000);
+      const candidates = await fetchAllRows(query, 500);
       const filtered = candidates.filter((row) => {
         if (needsLocalTextFilter && !matchesSearchText(row, text)) {
           return false;
