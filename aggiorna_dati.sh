@@ -343,8 +343,8 @@ log_msg "Log verboso: ${VERBOSE_LOG_FILE}"
 echo "Log verboso: $VERBOSE_LOG_FILE"
 
 if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
-  echo "[1/6] Backup cartelle..."
-  log_msg "[1/6] Backup cartelle"
+  echo "[1/7] Backup cartelle..."
+  log_msg "[1/7] Backup cartelle"
   if [ -n "$(find "dati_grezzi" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
     mkdir -p "$BACKUP_GREZZI_DIR"
     cp -a dati_grezzi/. "$BACKUP_GREZZI_DIR/"
@@ -359,13 +359,13 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
     echo " - letture_pulite vuota: nessun file da salvare"
   fi
 
-  echo "[2/6] Svuoto cartelle dati_grezzi e letture_pulite..."
-  log_msg "[2/6] Pulizia cartelle dati"
+  echo "[2/7] Svuoto cartelle dati_grezzi e letture_pulite..."
+  log_msg "[2/7] Pulizia cartelle dati"
   find dati_grezzi -mindepth 1 -delete
   find letture_pulite -mindepth 1 -delete
 
-  echo "[3/6] Raccolta dati con yt-dlp..."
-  log_msg "[3/6] Raccolta dati con yt-dlp"
+  echo "[3/7] Raccolta dati con yt-dlp..."
+  log_msg "[3/7] Raccolta dati con yt-dlp"
   
 
  YT_CHANNEL_SPECS=(
@@ -424,6 +424,7 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
   "100|https://www.youtube.com/@TtblDe" # bundesliga
   "100|https://www.youtube.com/@malonfanmadechannel" # ma long fan made channel
   "20|https://www.youtube.com/@AugustinePingPong"
+  "100|https://www.youtube.com/@samuel_piatanesi"
   )
 
   YT_COLLECTION_START_SEC="$SECONDS"
@@ -440,19 +441,22 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
     printf "\n"
   fi
 else
-  echo "[1-3/6] Download saltato (--skip-download). Parto dallo step 4..."
-  log_msg "[1-3/6] Download saltato (--skip-download)"
+  echo "[1-3/7] Download saltato (--skip-download). Parto dallo step 4..."
+  log_msg "[1-3/7] Download saltato (--skip-download)"
 fi
 
 
-run_logged_step_live "[4/6] Elaborazione dati con ytp.py..." "[4/6] Avvio ytp.py" \
+run_logged_step_live "[4/7] Elaborazione dati con ytp.py..." "[4/7] Avvio ytp.py" \
   python3 -u ytp.py
 
-run_logged_step "[5/6] Generazione script SQL upsert da CSV best effort..." "[5/6] Avvio csv_to_supabase_upsert_sql.py" \
+run_logged_step "[5/7] Generazione script SQL upsert da CSV best effort..." "[5/7] Avvio csv_to_supabase_upsert_sql.py" \
   python3 csv_to_supabase_upsert_sql.py
 
-run_logged_step "[6/6] Validazione caratteri SQL + creazione chunk per Supabase..." "[6/6] Avvio split_upsert_sql_chunks.py" \
+run_logged_step "[6/7] Validazione caratteri SQL + creazione chunk per Supabase..." "[6/7] Avvio split_upsert_sql_chunks.py" \
   python3 split_upsert_sql_chunks.py --input "$SQL_SOURCE_FILE" --out-dir "$SQL_CHUNK_DIR" --chunk-size "$SQL_CHUNK_SIZE"
+
+run_logged_step_live "[7/7] Esecuzione chunk SQL su Supabase via psql..." "[7/7] Avvio esegui_upsert_chunks_psql.sh" \
+  bash esegui_upsert_chunks_psql.sh
 
 echo "Completato."
 echo "Log verboso salvato in: $VERBOSE_LOG_FILE"
