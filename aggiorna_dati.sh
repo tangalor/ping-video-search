@@ -425,6 +425,7 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
   "100|https://www.youtube.com/@malonfanmadechannel" # ma long fan made channel
   "20|https://www.youtube.com/@AugustinePingPong"
   "100|https://www.youtube.com/@samuel_piatanesi"
+  "10|https://www.youtube.com/@ChulongNieTableTennis"
   )
 
   YT_COLLECTION_START_SEC="$SECONDS"
