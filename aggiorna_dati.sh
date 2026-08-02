@@ -13,9 +13,14 @@ SQL_CHUNK_DIR="output_upsert_chunks"
 SQL_CHUNK_SIZE="${SQL_CHUNK_SIZE:-100}"
 LOG_DIR="logs"
 VERBOSE_LOG_FILE="$LOG_DIR/aggiorna_dati_${TIMESTAMP}.log"
+TERMINAL_LOG_FILE="$LOG_DIR/aggiorna_dati_terminal_${TIMESTAMP}.log"
 SKIP_DOWNLOAD=0
-
+NOTIFY_EMAIL_TO="tangalor@gmail.com"
+NOTIFY_EMAIL_SUBJECT="PingTV / script di aggiunta video completato"
 mkdir -p "$BACKUP_ROOT" "dati_grezzi" "letture_pulite" "$LOG_DIR"
+
+# Capture only what is printed to terminal (stdout/stderr) in a dedicated log.
+exec > >(tee -a "$TERMINAL_LOG_FILE") 2>&1
 
 usage() {
   cat <<'EOF'
@@ -337,9 +342,52 @@ run_logged_step_live() {
   fi
 }
 
+send_completion_email() {
+  local recipient="$1"
+  local subject="$2"
+  local body_file="$3"
+
+  if [ ! -s "$body_file" ]; then
+    log_msg "Invio mail saltato: log vuoto o non disponibile ($body_file)"
+    return 0
+  fi
+
+  if command -v mail >/dev/null 2>&1; then
+    if mail -s "$subject" "$recipient" < "$body_file"; then
+      log_msg "Mail inviata con successo a $recipient tramite comando mail"
+      echo "Notifica email inviata a $recipient"
+      return 0
+    fi
+    log_msg "Tentativo invio mail tramite comando mail fallito"
+  fi
+
+  if command -v sendmail >/dev/null 2>&1; then
+    {
+      printf 'To: %s\n' "$recipient"
+      printf 'Subject: %s\n' "$subject"
+      printf 'Content-Type: text/plain; charset=UTF-8\n'
+      printf '\n'
+      cat "$body_file"
+    } | sendmail -t
+
+    if [ "$?" -eq 0 ]; then
+      log_msg "Mail inviata con successo a $recipient tramite comando sendmail"
+      echo "Notifica email inviata a $recipient"
+      return 0
+    fi
+
+    log_msg "Tentativo invio mail tramite comando sendmail fallito"
+  fi
+
+  echo "ATTENZIONE: impossibile inviare la mail (mail/sendmail non disponibili o errore invio)." >&2
+  log_msg "Invio mail non riuscito: nessun transport disponibile o errore invio"
+  return 1
+}
+
 log_msg "Avvio script aggiorna_dati.sh"
 log_msg "Log verboso: ${VERBOSE_LOG_FILE}"
 
+echo "Log terminale: $TERMINAL_LOG_FILE"
 echo "Log verboso: $VERBOSE_LOG_FILE"
 
 if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
@@ -459,6 +507,9 @@ run_logged_step "[6/7] Validazione caratteri SQL + creazione chunk per Supabase.
 run_logged_step_live "[7/7] Esecuzione chunk SQL su Supabase via psql..." "[7/7] Avvio esegui_upsert_chunks_psql.sh" \
   bash esegui_upsert_chunks_psql.sh
 
-echo "Completato."
+echo "✅ Completato."
+echo "Log terminale salvato in: $TERMINAL_LOG_FILE"
 echo "Log verboso salvato in: $VERBOSE_LOG_FILE"
-log_msg "Script completato con successo"
+log_msg "✅ Script completato con successo"
+
+send_completion_email "$NOTIFY_EMAIL_TO" "$NOTIFY_EMAIL_SUBJECT" "$TERMINAL_LOG_FILE" || true
