@@ -29,3 +29,8 @@ echo "✅ Configurazione completata con successo!"
 echo "• Sveglia Mac impostata: Ogni giorno alle 00:11"
 echo "• Cron Job impostato: Ogni giorno alle 00:12"
 echo "• I log dell'esecuzione verranno salvati in: $HOME/Documents/ping/aggiorna_dati_scheduled.log"
+
+
+### to check the scheduled jobs, you can run:
+# sudo pmset -g sched 
+# crontab -l 
