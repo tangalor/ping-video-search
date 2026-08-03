@@ -8,7 +8,7 @@
             "approve": true,
             "matchCommandLine": true
         },
-        "/^bash -n aggiorna_dati\\.sh$/": {
+        "/^bash -n scripts\/aggiorna_dati\\.sh$/": {
             "approve": true,
             "matchCommandLine": true
         }

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
 TIMESTAMP="$(date +"%Y%m%d_%H%M%S")"
@@ -24,7 +25,7 @@ exec > >(tee -a "$TERMINAL_LOG_FILE") 2>&1
 
 usage() {
   cat <<'EOF'
-Uso: ./aggiorna_dati.sh [opzioni]
+Uso: ./scripts/aggiorna_dati.sh [opzioni]
 
 Opzioni:
   --skip-download    Salta step 1-3 (backup/pulizia/download) e parte dallo step 4.
@@ -496,16 +497,16 @@ fi
 
 
 run_logged_step_live "[4/7] Elaborazione dati con ytp.py..." "[4/7] Avvio ytp.py" \
-  python3 -u ytp.py
+  python3 -u scripts/ytp.py
 
 run_logged_step "[5/7] Generazione script SQL upsert da CSV best effort..." "[5/7] Avvio csv_to_supabase_upsert_sql.py" \
-  python3 csv_to_supabase_upsert_sql.py
+  python3 scripts/csv_to_supabase_upsert_sql.py
 
 run_logged_step "[6/7] Validazione caratteri SQL + creazione chunk per Supabase..." "[6/7] Avvio split_upsert_sql_chunks.py" \
-  python3 split_upsert_sql_chunks.py --input "$SQL_SOURCE_FILE" --out-dir "$SQL_CHUNK_DIR" --chunk-size "$SQL_CHUNK_SIZE"
+  python3 scripts/split_upsert_sql_chunks.py --input "$SQL_SOURCE_FILE" --out-dir "$SQL_CHUNK_DIR" --chunk-size "$SQL_CHUNK_SIZE"
 
 run_logged_step_live "[7/7] Esecuzione chunk SQL su Supabase via psql..." "[7/7] Avvio esegui_upsert_chunks_psql.sh" \
-  bash esegui_upsert_chunks_psql.sh
+  bash scripts/esegui_upsert_chunks_psql.sh
 
 echo "✅ Completato."
 echo "Log terminale salvato in: $TERMINAL_LOG_FILE"

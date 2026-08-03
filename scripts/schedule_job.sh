@@ -6,7 +6,7 @@ echo "Configuro il risveglio automatico del Mac alle 00:11..."
 sudo pmset repeat wakeorpoweron MTWRFSU 00:11:00
 
 # 2. Percorso assoluto del tuo script di aggiornamento (MODIFICA QUESTO PERCORSO)
-SCRIPT_PATH="$HOME/Documents/ping/aggiorna_dati.sh"
+SCRIPT_PATH="$HOME/Documents/ping/scripts/aggiorna_dati.sh"
 
 # Verifica che lo script aggiorna_dati.sh esista
 if [ ! -f "$SCRIPT_PATH" ]; then
