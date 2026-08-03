@@ -531,6 +531,9 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
   "20|https://www.youtube.com/@AugustinePingPong"
   "100|https://www.youtube.com/@samuel_piatanesi"
   "10|https://www.youtube.com/@ChulongNieTableTennis"
+  #"3000|https://www.youtube.com/@pong4life"
+  #"1550|https://www.youtube.com/@orangecountytabletennis"
+  
   )
 
   YT_COLLECTION_START_SEC="$SECONDS"
