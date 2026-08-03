@@ -66,18 +66,7 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          DB_HOST="$(python - <<'PY'
-import os
-from urllib.parse import urlparse
-
-url = os.environ.get("SUPABASE_DB_URL", "")
-try:
-    host = urlparse(url).hostname or ""
-except Exception:
-    host = ""
-print(host)
-PY
-          )"
+          DB_HOST="$(python -c 'import os; from urllib.parse import urlparse; u=os.environ.get("SUPABASE_DB_URL", ""); print((urlparse(u).hostname or "") if u else "")')"
 
           if [ -z "${DB_HOST}" ]; then
             echo "::error::Impossibile estrarre host da SUPABASE_DB_URL. Verifica il formato della connection string."
