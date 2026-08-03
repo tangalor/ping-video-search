@@ -20,6 +20,9 @@ output_upsert_from_csv.sql
 
 logs/*
 
+scripts/cookies.txt
+scripts/cookies.b64
+
 __pycache__/*
 
 output_upsert_chunks/*
