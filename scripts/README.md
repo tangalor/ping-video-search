@@ -16,6 +16,13 @@ Questa cartella contiene tutti gli script shell e Python del progetto.
     7. Esecuzione chunk con `esegui_upsert_chunks_psql.sh`
   - Invia anche una mail di fine esecuzione usando il log terminale (se `mail`/`sendmail` sono disponibili).
 
+- `report_youtube_recent_channels.sh`
+  - Legge la lista canali da `aggiorna_dati.sh` e stampa una tabella con solo i canali che hanno pubblicato video negli ultimi N giorni.
+  - Usa `yt-dlp` per contare i video recenti per ogni canale.
+  - Opzioni utili:
+    - `--days N` per impostare la finestra temporale.
+    - `--show-matches` per vedere anche i singoli video trovati.
+
 - `esegui_upsert_chunks_psql.sh`
   - Esegue i file in `output_upsert_chunks/output_upsert_from_csv_part_*.sql`.
   - Usa `SUPABASE_DB_URL` da `.env`.

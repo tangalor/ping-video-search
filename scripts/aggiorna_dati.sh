@@ -527,16 +527,19 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
   "1000|https://www.youtube.com/@VideoTTMondovi"
   "5|https://www.youtube.com/@pierluigiloi9961"
   "10|https://www.youtube.com/@TtblDe" # bundesliga
-  #"1500|https://www.youtube.com/@MALONGFanmadeChannel" # ma long fan made channel
+  #---"1500|https://www.youtube.com/@MALONGFanmadeChannel" # ma long fan made channel
   "3|https://www.youtube.com/@AugustinePingPong"
   "100|https://www.youtube.com/@samuel_piatanesi"
   "10|https://www.youtube.com/@ChulongNieTableTennis"
   "3|https://www.youtube.com/@conhuang0"
-  #"3000|https://www.youtube.com/@pong4life"
-  #"1550|https://www.youtube.com/@orangecountytabletennis"
-  #"200|https://www.youtube.com/@kl2show"
-  #"3500|https://www.youtube.com/@majorleaguetabletennis"
-  #"20010|https://www.youtube.com/@tteliteseries7892".         #20k video!!!
+  #---"650|https://www.youtube.com/@familiasunami"
+  #---"200|https://www.youtube.com/@pingpongweekend"
+  #---"3000|https://www.youtube.com/@pong4life"
+  #---"1550|https://www.youtube.com/@orangecountytabletennis"
+  #---"200|https://www.youtube.com/@kl2show"
+  #---"3500|https://www.youtube.com/@majorleaguetabletennis"
+  #---"20010|https://www.youtube.com/@tteliteseries7892".         #20k video!!!
+  
 
   
   )
