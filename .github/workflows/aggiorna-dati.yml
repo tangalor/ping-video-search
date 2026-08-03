@@ -77,15 +77,15 @@ jobs:
             echo "ok YTDLP_COOKIES_B64 e valorizzata"
           fi
 
-      - name: Verifica cookie yt-dlp (blocco anticipato)
+      - name: Verifica cookie yt-dlp (strutturale + smoke test)
         if: ${{ github.event.inputs.skip_download != 'true' }}
         env:
           YTDLP_COOKIES_B64: ${{ secrets.YTDLP_COOKIES_B64 }}
         run: |
           if [ -z "${YTDLP_COOKIES_B64}" ]; then
-            echo "::error::Secret YTDLP_COOKIES_B64 mancante. Per eseguire il download in CI serve un cookie YouTube valido."
-            echo "::error::Rigenera cookies.txt da browser loggato, convertilo in base64 e aggiorna il secret YTDLP_COOKIES_B64."
-            exit 1
+            echo "::warning::Secret YTDLP_COOKIES_B64 mancante. Il download potrebbe essere bloccato da challenge anti-bot."
+            echo "::warning::Per maggiore affidabilita aggiorna YTDLP_COOKIES_B64, oppure usa skip_download=true quando vuoi solo la fase SQL."
+            exit 0
           fi
 
           if [ ! -s .yt-dlp-cookies.txt ]; then
@@ -93,13 +93,20 @@ jobs:
             exit 1
           fi
 
-          if ! yt-dlp --cookies .yt-dlp-cookies.txt --extractor-args "youtube:player_client=android,web" --skip-download --playlist-end 1 "https://www.youtube.com/@pingpongstyles/videos" >/dev/null 2>&1; then
-            echo "::error::Cookie yt-dlp non valido o scaduto (oppure challenge anti-bot)."
-            echo "::error::Rigenera cookies.txt dal browser, ricodifica in base64 e aggiorna YTDLP_COOKIES_B64."
+          if ! grep -Eqi 'youtube\.com|google\.com|googlevideo\.com|ytimg\.com' .yt-dlp-cookies.txt; then
+            echo "::error::Il file cookie decodificato non contiene domini YouTube/Google attesi."
+            echo "::error::Esporta di nuovo cookies.txt dal browser (profilo loggato YouTube) e rigenera YTDLP_COOKIES_B64."
             exit 1
           fi
 
-          echo "ok cookie yt-dlp valido per il download in CI"
+          if ! yt-dlp --cookies .yt-dlp-cookies.txt --extractor-args "youtube:player_client=web" --skip-download --playlist-end 1 "https://www.youtube.com/@pingpongstyles/videos" >/dev/null 2>&1; then
+            echo "::warning::Smoke test yt-dlp fallito in precheck (possibile challenge anti-bot temporanea)."
+            echo "::warning::Continuo comunque: la verifica definitiva avverra durante l'esecuzione pipeline."
+          else
+            echo "ok smoke test cookie yt-dlp"
+          fi
+
+          echo "ok struttura cookie yt-dlp verificata"
 
       - name: Rendi eseguibili gli script
         run: |

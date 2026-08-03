@@ -19,7 +19,7 @@ SKIP_DOWNLOAD=0
 NOTIFY_EMAIL_TO="tangalor@gmail.com"
 NOTIFY_EMAIL_SUBJECT="PingTV / script di aggiunta video completato"
 YTDLP_COOKIES_FILE="${YTDLP_COOKIES_FILE:-$ROOT_DIR/.yt-dlp-cookies.txt}"
-YTDLP_EXTRACTOR_ARGS="${YTDLP_EXTRACTOR_ARGS:-youtube:player_client=android,web}"
+YTDLP_EXTRACTOR_ARGS="${YTDLP_EXTRACTOR_ARGS:-youtube:player_client=web}"
 YTDLP_USER_AGENT="${YTDLP_USER_AGENT:-}"
 mkdir -p "$BACKUP_ROOT" "dati_grezzi" "letture_pulite" "$LOG_DIR"
 
