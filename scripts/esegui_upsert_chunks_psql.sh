@@ -12,6 +12,8 @@ PROGRESS_BAR_WIDTH="${PROGRESS_BAR_WIDTH:-28}"
 PANEL_LINES=2
 PANEL_RENDERED=0
 DISABLE_PROGRESS_BARS="${DISABLE_PROGRESS_BARS:-}"
+PROGRESS_FD=1
+PROGRESS_IS_TTY=0
 PGCONNECT_TIMEOUT="${PGCONNECT_TIMEOUT:-15}"
 PSQL_MAX_RETRIES="${PSQL_MAX_RETRIES:-4}"
 PSQL_RETRY_DELAY_SEC="${PSQL_RETRY_DELAY_SEC:-3}"
@@ -25,7 +27,15 @@ if [[ -z "$DISABLE_PROGRESS_BARS" ]]; then
   fi
 fi
 
-if [[ -t 1 ]]; then
+# When stdout is piped by parent scripts, render progress on the actual terminal.
+if [[ "$DISABLE_PROGRESS_BARS" != "1" ]] && [[ -z "${GITHUB_ACTIONS:-}" ]] && [[ -e /dev/tty ]]; then
+  if exec 3>/dev/tty; then
+    PROGRESS_FD=3
+    PROGRESS_IS_TTY=1
+  fi
+fi
+
+if [[ "$PROGRESS_IS_TTY" -eq 1 ]] || [[ -t 1 ]]; then
   COLOR_RESET=$'\033[0m'
   COLOR_CYAN=$'\033[36m'
   COLOR_GREEN=$'\033[32m'
@@ -137,7 +147,9 @@ run_psql_with_retries() {
 
 print_panel_line() {
   local text="$1"
-  if [[ -t 1 ]]; then
+  if [[ "$PROGRESS_IS_TTY" -eq 1 ]]; then
+    printf '\r\033[2K%s\n' "$text" >&3
+  elif [[ -t 1 ]]; then
     printf '\r\033[2K%s\n' "$text"
   else
     printf '%s\n' "$text"
@@ -158,7 +170,9 @@ render_progress_panel() {
   bar="$(progress_bar "$current" "$total" "$PROGRESS_BAR_WIDTH")"
   pct="$(progress_pct "$current" "$total")"
 
-  if [[ "$PANEL_RENDERED" -eq 1 && -t 1 ]]; then
+  if [[ "$PANEL_RENDERED" -eq 1 && "$PROGRESS_IS_TTY" -eq 1 ]]; then
+    printf '\033[%sA' "$PANEL_LINES" >&3
+  elif [[ "$PANEL_RENDERED" -eq 1 && -t 1 ]]; then
     printf '\033[%sA' "$PANEL_LINES"
   fi
 

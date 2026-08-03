@@ -22,6 +22,8 @@ DISABLE_PROGRESS_BARS="${DISABLE_PROGRESS_BARS:-}"
 YTDLP_COOKIES_FILE="${YTDLP_COOKIES_FILE:-$ROOT_DIR/.yt-dlp-cookies.txt}"
 YTDLP_EXTRACTOR_ARGS="${YTDLP_EXTRACTOR_ARGS:-youtube:player_client=web}"
 YTDLP_USER_AGENT="${YTDLP_USER_AGENT:-}"
+PROGRESS_FD=1
+PROGRESS_IS_TTY=0
 mkdir -p "$BACKUP_ROOT" "dati_grezzi" "letture_pulite" "$LOG_DIR"
 
 if [[ -z "$DISABLE_PROGRESS_BARS" ]]; then
@@ -29,6 +31,14 @@ if [[ -z "$DISABLE_PROGRESS_BARS" ]]; then
     DISABLE_PROGRESS_BARS=1
   else
     DISABLE_PROGRESS_BARS=0
+  fi
+fi
+
+# When stdout is piped via tee, render progress on the real terminal for in-place updates.
+if [[ "$DISABLE_PROGRESS_BARS" != "1" ]] && [[ -z "${GITHUB_ACTIONS:-}" ]] && [[ -e /dev/tty ]]; then
+  if exec 3>/dev/tty; then
+    PROGRESS_FD=3
+    PROGRESS_IS_TTY=1
   fi
 fi
 
@@ -80,7 +90,7 @@ YT_PANEL_RENDERED=0
 YT_COLLECTION_START_SEC=0
 YT_MIN_UPDATE_INTERVAL=1
 
-if [ -t 1 ]; then
+if [[ "$PROGRESS_IS_TTY" -eq 1 ]] || [ -t 1 ]; then
   COLOR_RESET=$'\033[0m'
   COLOR_CYAN=$'\033[36m'
   COLOR_GREEN=$'\033[32m'
@@ -182,7 +192,9 @@ estimate_eta_seconds() {
 
 print_panel_line() {
   local text="$1"
-  if [ -t 1 ]; then
+  if [[ "$PROGRESS_IS_TTY" -eq 1 ]]; then
+    printf '\r\033[2K%s\n' "$text" >&3
+  elif [ -t 1 ]; then
     # Clear whole line before writing to avoid leftover characters from previous longer content.
     printf '\r\033[2K%s\n' "$text"
   else
@@ -212,7 +224,9 @@ render_yt_panel() {
   video_bar="$(progress_bar "$video_index" "$video_total")"
   video_pct="$(progress_pct "$video_index" "$video_total")"
 
-  if [ "$YT_PANEL_RENDERED" -eq 1 ] && [ -t 1 ]; then
+  if [ "$YT_PANEL_RENDERED" -eq 1 ] && [[ "$PROGRESS_IS_TTY" -eq 1 ]]; then
+    printf '\033[%sA' "$YT_PANEL_LINES" >&3
+  elif [ "$YT_PANEL_RENDERED" -eq 1 ] && [ -t 1 ]; then
     printf '\033[%sA' "$YT_PANEL_LINES"
   fi
 
