@@ -69,10 +69,37 @@ jobs:
           if [ -z "${YTDLP_COOKIES_B64}" ]; then
             echo "Warning: YTDLP_COOKIES_B64 non valorizzata (potrebbero comparire blocchi anti-bot su YouTube)"
           else
-            printf '%s' "${YTDLP_COOKIES_B64}" | base64 -d > .yt-dlp-cookies.txt
+            if ! printf '%s' "${YTDLP_COOKIES_B64}" | base64 -d > .yt-dlp-cookies.txt; then
+              echo "::error::YTDLP_COOKIES_B64 non valido: decode base64 fallita. Rigenera il valore da un cookies.txt YouTube valido."
+              exit 1
+            fi
             chmod 600 .yt-dlp-cookies.txt
             echo "ok YTDLP_COOKIES_B64 e valorizzata"
           fi
+
+      - name: Verifica cookie yt-dlp (blocco anticipato)
+        if: ${{ github.event.inputs.skip_download != 'true' }}
+        env:
+          YTDLP_COOKIES_B64: ${{ secrets.YTDLP_COOKIES_B64 }}
+        run: |
+          if [ -z "${YTDLP_COOKIES_B64}" ]; then
+            echo "::error::Secret YTDLP_COOKIES_B64 mancante. Per eseguire il download in CI serve un cookie YouTube valido."
+            echo "::error::Rigenera cookies.txt da browser loggato, convertilo in base64 e aggiorna il secret YTDLP_COOKIES_B64."
+            exit 1
+          fi
+
+          if [ ! -s .yt-dlp-cookies.txt ]; then
+            echo "::error::File cookie yt-dlp assente o vuoto dopo decode. Aggiorna YTDLP_COOKIES_B64."
+            exit 1
+          fi
+
+          if ! yt-dlp --cookies .yt-dlp-cookies.txt --extractor-args "youtube:player_client=android,web" --skip-download --playlist-end 1 "https://www.youtube.com/@pingpongstyles/videos" >/dev/null 2>&1; then
+            echo "::error::Cookie yt-dlp non valido o scaduto (oppure challenge anti-bot)."
+            echo "::error::Rigenera cookies.txt dal browser, ricodifica in base64 e aggiorna YTDLP_COOKIES_B64."
+            exit 1
+          fi
+
+          echo "ok cookie yt-dlp valido per il download in CI"
 
       - name: Rendi eseguibili gli script
         run: |
