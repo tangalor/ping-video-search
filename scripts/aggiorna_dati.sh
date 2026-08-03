@@ -18,10 +18,19 @@ TERMINAL_LOG_FILE="$LOG_DIR/aggiorna_dati_terminal_${TIMESTAMP}.log"
 SKIP_DOWNLOAD=0
 NOTIFY_EMAIL_TO="tangalor@gmail.com"
 NOTIFY_EMAIL_SUBJECT="PingTV / script di aggiunta video completato"
+DISABLE_PROGRESS_BARS="${DISABLE_PROGRESS_BARS:-}"
 YTDLP_COOKIES_FILE="${YTDLP_COOKIES_FILE:-$ROOT_DIR/.yt-dlp-cookies.txt}"
 YTDLP_EXTRACTOR_ARGS="${YTDLP_EXTRACTOR_ARGS:-youtube:player_client=web}"
 YTDLP_USER_AGENT="${YTDLP_USER_AGENT:-}"
 mkdir -p "$BACKUP_ROOT" "dati_grezzi" "letture_pulite" "$LOG_DIR"
+
+if [[ -z "$DISABLE_PROGRESS_BARS" ]]; then
+  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    DISABLE_PROGRESS_BARS=1
+  else
+    DISABLE_PROGRESS_BARS=0
+  fi
+fi
 
 # Capture only what is printed to terminal (stdout/stderr) in a dedicated log.
 exec > >(tee -a "$TERMINAL_LOG_FILE") 2>&1
@@ -182,6 +191,10 @@ print_panel_line() {
 }
 
 render_yt_panel() {
+  if [[ "$DISABLE_PROGRESS_BARS" == "1" ]]; then
+    return
+  fi
+
   local channel_index="$1"
   local total_channels="$2"
   local channel_label="$3"

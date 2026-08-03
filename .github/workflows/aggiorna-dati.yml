@@ -62,6 +62,76 @@ jobs:
             echo "ok SUPABASE_SERVICE_ROLE_KEY e valorizzata"
           fi
 
+      - name: Precheck rete Supabase (DNS/TCP 5432)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          DB_HOST="$(python - <<'PY'
+import os
+from urllib.parse import urlparse
+
+url = os.environ.get("SUPABASE_DB_URL", "")
+try:
+    host = urlparse(url).hostname or ""
+except Exception:
+    host = ""
+print(host)
+PY
+          )"
+
+          if [ -z "${DB_HOST}" ]; then
+            echo "::error::Impossibile estrarre host da SUPABASE_DB_URL. Verifica il formato della connection string."
+            exit 1
+          fi
+
+          echo "Host Supabase rilevato: ${DB_HOST}"
+
+          A_RECORDS="$(getent ahostsv4 "${DB_HOST}" 2>/dev/null | awk '{print $1}' | sort -u | tr '\n' ' ' || true)"
+          AAAA_RECORDS="$(getent ahostsv6 "${DB_HOST}" 2>/dev/null | awk '{print $1}' | sort -u | tr '\n' ' ' || true)"
+
+          if [ -n "${A_RECORDS}" ]; then
+            echo "DNS A (IPv4): ${A_RECORDS}"
+          else
+            echo "DNS A (IPv4): nessun record"
+          fi
+
+          if [ -n "${AAAA_RECORDS}" ]; then
+            echo "DNS AAAA (IPv6): ${AAAA_RECORDS}"
+          else
+            echo "DNS AAAA (IPv6): nessun record"
+          fi
+
+          if [ -z "${A_RECORDS}" ] && [ -z "${AAAA_RECORDS}" ]; then
+            echo "::error::Precheck rete fallito: DNS non risolve l'host Supabase."
+            echo "::error::Problema strutturale (DNS/host): la pipeline non puo raggiungere il database."
+            exit 1
+          fi
+
+          TCP_V4_OK=0
+          TCP_V6_OK=0
+
+          if nc -4 -z -w 6 "${DB_HOST}" 5432 >/dev/null 2>&1; then
+            TCP_V4_OK=1
+            echo "TCP IPv4 verso ${DB_HOST}:5432 -> OK"
+          else
+            echo "TCP IPv4 verso ${DB_HOST}:5432 -> KO"
+          fi
+
+          if nc -6 -z -w 6 "${DB_HOST}" 5432 >/dev/null 2>&1; then
+            TCP_V6_OK=1
+            echo "TCP IPv6 verso ${DB_HOST}:5432 -> OK"
+          else
+            echo "TCP IPv6 verso ${DB_HOST}:5432 -> KO"
+          fi
+
+          if [ "${TCP_V4_OK}" -eq 0 ] && [ "${TCP_V6_OK}" -eq 0 ]; then
+            echo "::error::Precheck rete fallito: nessuna connettivita TCP verso Supabase sulla porta 5432 (IPv4 e IPv6 entrambi KO)."
+            echo "::error::Problema strutturale di rete lato runner/DNS/path o outage temporaneo del servizio. Riprova piu tardi o verifica reachability da altra rete."
+            exit 1
+          fi
+
+          echo "ok precheck rete Supabase superato (almeno uno stack IP raggiunge la porta 5432)"
+
       - name: Prepara cookie yt-dlp (opzionale)
         env:
           YTDLP_COOKIES_B64: ${{ secrets.YTDLP_COOKIES_B64 }}
@@ -116,6 +186,7 @@ jobs:
       - name: Esegui pipeline aggiorna_dati
         env:
           SKIP_DOWNLOAD_INPUT: ${{ github.event.inputs.skip_download }}
+          DISABLE_PROGRESS_BARS: "1"
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
