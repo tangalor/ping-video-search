@@ -22,6 +22,10 @@ DISABLE_PROGRESS_BARS="${DISABLE_PROGRESS_BARS:-}"
 YTDLP_COOKIES_FILE="${YTDLP_COOKIES_FILE:-$ROOT_DIR/.yt-dlp-cookies.txt}"
 YTDLP_EXTRACTOR_ARGS="${YTDLP_EXTRACTOR_ARGS:-youtube:player_client=web}"
 YTDLP_USER_AGENT="${YTDLP_USER_AGENT:-}"
+YT_CHANNELS_FILE="${YT_CHANNELS_FILE:-$ROOT_DIR/scripts/youtube_channels.txt}"
+YT_CHANNEL_SPECS_FILE="${YT_CHANNEL_SPECS_FILE:-}"
+DEFAULT_CUSTOM_CHANNEL_SPECS_FILE="$ROOT_DIR/scripts/youtube_channel_specs.custom.example.txt"
+YT_CHANNEL_REPORT_DAYS="${YT_CHANNEL_REPORT_DAYS:-3}"
 PROGRESS_FD=1
 PROGRESS_IS_TTY=0
 mkdir -p "$BACKUP_ROOT" "dati_grezzi" "letture_pulite" "$LOG_DIR"
@@ -51,6 +55,8 @@ Uso: ./scripts/aggiorna_dati.sh [opzioni]
 
 Opzioni:
   --skip-download    Salta step 1-3 (backup/pulizia/download) e parte dallo step 4.
+  --use-custom-channel-specs
+                     Usa automaticamente scripts/youtube_channel_specs.custom.example.txt.
   -h, --help         Mostra questo aiuto.
 EOF
 }
@@ -59,6 +65,10 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --skip-download)
       SKIP_DOWNLOAD=1
+      shift
+      ;;
+    --use-custom-channel-specs)
+      YT_CHANNEL_SPECS_FILE="$DEFAULT_CUSTOM_CHANNEL_SPECS_FILE"
       shift
       ;;
     -h|--help)
@@ -471,78 +481,57 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
 
   echo "[3/7] Raccolta dati con yt-dlp..."
   log_msg "[3/7] Raccolta dati con yt-dlp"
-  
+  if [[ -n "$YT_CHANNEL_SPECS_FILE" ]]; then
+    echo " - uso lista custom numero|url da: $YT_CHANNEL_SPECS_FILE"
+    log_msg "[3/7] Uso lista custom YT_CHANNEL_SPECS da $YT_CHANNEL_SPECS_FILE"
 
- YT_CHANNEL_SPECS=(
-  "10|https://www.youtube.com/@pingpongstyles"
-  "12|https://www.youtube.com/@Fitetofficial"
-  "60|https://www.youtube.com/@wttglobal"
-  "30|https://www.youtube.com/@ettutvofficial"
-  "2|https://www.youtube.com/@Learn_TableTennis"
-  "30|https://www.youtube.com/@MilanoSportTT"
-  "10|https://www.youtube.com/@tt-topspinmessina7289"
-  "20|https://www.youtube.com/@tennistavolosassari3889"
-  "10|https://www.youtube.com/@tennistavolovigevano"
-  "20|https://www.youtube.com/@ttnulvi"
-  "15|https://www.youtube.com/@muraveratennistavolo8062"
-  "15|https://www.youtube.com/@ASDNewTTPieveEmanuele"
-  "10|https://www.youtube.com/@videotttorino8111"
-  "10|https://www.youtube.com/@tennistavolocastelgoffredo3697"
-  "3|https://www.youtube.com/@YouPongOfficial"
-  "2|https://www.youtube.com/@tabletennis69"
-  "3|https://www.youtube.com/@GiacomoCerea"
-  "2|https://www.youtube.com/@FilippoCantellaTT"
-  "2|https://www.youtube.com/@mitsutabletennis"
-  "2|https://www.youtube.com/@Top8TT"
-  "2|https://www.youtube.com/@TableSkills"
-  "2|https://www.youtube.com/@LucaLaNotteTTplayer"
-  "2|https://www.youtube.com/@Simoneleotta0"
-  "3|https://www.youtube.com/@TableTennisDaily"
-  "3|https://www.youtube.com/@tabletennisindependent3737"
-  "10|https://www.youtube.com/@TTtrix"
-  "3|https://www.youtube.com/@BeyondThePodiumOfficial"
-  "1|https://www.youtube.com/@giacomoizzo2007"
-  "2|https://www.youtube.com/@ZeroNet-TTCARTURA"
-  "2|https://www.youtube.com/@Dr.PsyPong" # Filippo Marchese
-  "3|https://www.youtube.com/@ITTFWorld"
-  "3|https://www.youtube.com/@TableTennisEngland"
-  "20|https://www.youtube.com/@AndreasLevenko"
-  "40|https://www.youtube.com/@tabletennisdailyplus"
-  "30|https://www.youtube.com/@TableTennisDailyCast"
-  "20|https://www.youtube.com/@PongFoxTabletennis"
-  "15|https://www.youtube.com/@World.Table.Tennis"
-  "15|https://www.youtube.com/@SpinClips"
-  "2|https://www.youtube.com/@ttlondon2012" 
-  "15|https://www.youtube.com/@MagnusEffectTT"
-  "20|https://www.youtube.com/@DiegoTTTube"
-  "15|https://www.youtube.com/@ttjapan3023"
-  "10|https://www.youtube.com/@perdagermo734" #alcuni video sono da cancellare perchè riguardano concerti
-  "10|https://www.youtube.com/@GecaPhoenix" 
-  "10|https://www.youtube.com/@GecaPhoenix2"
-  "40|https://www.youtube.com/@ttstars"
-  "40|https://www.youtube.com/@TTSTARSERIES" 
-  "10|https://www.youtube.com/@TTCrazyShot"
-  "15|https://www.youtube.com/@OlavKTTT"
-  "10|https://www.youtube.com/@pingponggoris"
-  "1000|https://www.youtube.com/@VideoTTMondovi"
-  "5|https://www.youtube.com/@pierluigiloi9961"
-  "10|https://www.youtube.com/@TtblDe" # bundesliga
-  #---"1500|https://www.youtube.com/@MALONGFanmadeChannel" # ma long fan made channel
-  "3|https://www.youtube.com/@AugustinePingPong"
-  "100|https://www.youtube.com/@samuel_piatanesi"
-  "10|https://www.youtube.com/@ChulongNieTableTennis"
-  "3|https://www.youtube.com/@conhuang0"
-  #---"650|https://www.youtube.com/@familiasunami"
-  #---"200|https://www.youtube.com/@pingpongweekend"
-  #---"3000|https://www.youtube.com/@pong4life"
-  #---"1550|https://www.youtube.com/@orangecountytabletennis"
-  #---"200|https://www.youtube.com/@kl2show"
-  #---"3500|https://www.youtube.com/@majorleaguetabletennis"
-  #---"20010|https://www.youtube.com/@tteliteseries7892".         #20k video!!!
-  
+    if [[ ! -f "$YT_CHANNEL_SPECS_FILE" ]]; then
+      log_msg "Errore: file custom YT_CHANNEL_SPECS non trovato: $YT_CHANNEL_SPECS_FILE"
+      echo "Errore: file custom YT_CHANNEL_SPECS non trovato: $YT_CHANNEL_SPECS_FILE" >&2
+      exit 1
+    fi
 
-  
-  )
+    mapfile -t YT_CHANNEL_SPECS < <(grep -Ev '^[[:space:]]*($|#)' "$YT_CHANNEL_SPECS_FILE")
+  else
+    echo " - aggiorno YT_CHANNEL_SPECS dal report RSS (${YT_CHANNEL_REPORT_DAYS} giorni, solo colonna video)"
+    log_msg "[3/7] Generazione YT_CHANNEL_SPECS dal report RSS"
+
+    report_specs_file="$(mktemp)"
+    if ! bash scripts/report_youtube_recent_channels.sh \
+      --days "$YT_CHANNEL_REPORT_DAYS" \
+      --channels-file "$YT_CHANNELS_FILE" \
+      --emit-specs > "$report_specs_file"; then
+      rm -f "$report_specs_file"
+      log_msg "Errore: generazione YT_CHANNEL_SPECS dal report RSS"
+      echo "Errore durante la generazione della lista canali attivi dal report RSS." >&2
+      exit 1
+    fi
+
+    mapfile -t YT_CHANNEL_SPECS < "$report_specs_file"
+    rm -f "$report_specs_file"
+  fi
+
+  for spec in "${YT_CHANNEL_SPECS[@]}"; do
+    if [[ ! "$spec" =~ ^[0-9]+\|https://www\.youtube\.com/ ]]; then
+      log_msg "Errore: riga YT_CHANNEL_SPECS non valida: $spec"
+      echo "Errore: riga YT_CHANNEL_SPECS non valida: $spec" >&2
+      exit 1
+    fi
+  done
+
+  if [ "${#YT_CHANNEL_SPECS[@]}" -gt 0 ]; then
+    echo " - canali selezionati (numero|url):"
+    log_msg "[3/7] Elenco canali selezionati (numero|url):"
+    for spec in "${YT_CHANNEL_SPECS[@]}"; do
+      echo "   $spec"
+      log_msg "[3/7]   $spec"
+    done
+  fi
+
+  if [ "${#YT_CHANNEL_SPECS[@]}" -eq 0 ]; then
+    echo " - nessun canale con video classici nel range richiesto: salto il download YouTube"
+    log_msg "[3/7] Nessun canale con video classici nel range richiesto"
+  fi
 
   YT_COLLECTION_START_SEC="$SECONDS"
 

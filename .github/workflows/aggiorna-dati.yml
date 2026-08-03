@@ -8,6 +8,16 @@ on:
         required: false
         type: boolean
         default: false
+      channel_report_days:
+        description: "Finestra in giorni per selezionare i canali con video classici recenti"
+        required: false
+        type: string
+        default: "3"
+      use_custom_channel_specs:
+        description: "Usa automaticamente scripts/youtube_channel_specs.custom.example.txt"
+        required: false
+        type: boolean
+        default: false
   schedule:
     # 22:12 UTC ~= 00:12 in Italia durante ora legale.
     # Aggiorna questo cron in base all'orario desiderato.
@@ -175,12 +185,23 @@ jobs:
       - name: Esegui pipeline aggiorna_dati
         env:
           SKIP_DOWNLOAD_INPUT: ${{ github.event.inputs.skip_download }}
+          YT_CHANNEL_REPORT_DAYS: ${{ github.event.inputs.channel_report_days || '3' }}
+          USE_CUSTOM_CHANNEL_SPECS: ${{ github.event.inputs.use_custom_channel_specs || 'false' }}
           DISABLE_PROGRESS_BARS: "1"
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           YTDLP_COOKIES_FILE: ./.yt-dlp-cookies.txt
         run: |
+          if [ "${USE_CUSTOM_CHANNEL_SPECS}" = "true" ]; then
+            export YT_CHANNEL_SPECS_FILE="scripts/youtube_channel_specs.custom.example.txt"
+          else
+            export YT_CHANNEL_SPECS_FILE=""
+          fi
+
+          echo "YT_CHANNEL_REPORT_DAYS=${YT_CHANNEL_REPORT_DAYS}"
+          echo "USE_CUSTOM_CHANNEL_SPECS=${USE_CUSTOM_CHANNEL_SPECS}"
+          echo "YT_CHANNEL_SPECS_FILE=${YT_CHANNEL_SPECS_FILE:-<auto da report RSS>}"
           if [ "${SKIP_DOWNLOAD_INPUT}" = "true" ]; then
             ./scripts/aggiorna_dati.sh --skip-download
           else

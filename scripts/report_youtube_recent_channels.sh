@@ -4,68 +4,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-DAYS=1
+DAYS=3
 USER_AGENT="${USER_AGENT:-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36}"
-
-YT_CHANNEL_SPECS=(
-  "https://www.youtube.com/@pingpongstyles"
-  "https://www.youtube.com/@Fitetofficial"
-  "https://www.youtube.com/@wttglobal"
-  "https://www.youtube.com/@ettutvofficial"
-  "https://www.youtube.com/@Learn_TableTennis"
-  "https://www.youtube.com/@MilanoSportTT"
-  "https://www.youtube.com/@tt-topspinmessina7289"
-  "https://www.youtube.com/@tennistavolosassari3889"
-  "https://www.youtube.com/@tennistavolovigevano"
-  "https://www.youtube.com/@ttnulvi"
-  "https://www.youtube.com/@muraveratennistavolo8062"
-  "https://www.youtube.com/@ASDNewTTPieveEmanuele"
-  "https://www.youtube.com/@videotttorino8111"
-  "https://www.youtube.com/@tennistavolocastelgoffredo3697"
-  "https://www.youtube.com/@YouPongOfficial"
-  "https://www.youtube.com/@tabletennis69"
-  "https://www.youtube.com/@GiacomoCerea"
-  "https://www.youtube.com/@FilippoCantellaTT"
-  "https://www.youtube.com/@mitsutabletennis"
-  "https://www.youtube.com/@Top8TT"
-  "https://www.youtube.com/@TableSkills"
-  "https://www.youtube.com/@LucaLaNotteTTplayer"
-  "https://www.youtube.com/@Simoneleotta0"
-  "https://www.youtube.com/@TableTennisDaily"
-  "https://www.youtube.com/@tabletennisindependent3737"
-  "https://www.youtube.com/@TTtrix"
-  "https://www.youtube.com/@BeyondThePodiumOfficial"
-  "https://www.youtube.com/@giacomoizzo2007"
-  "https://www.youtube.com/@ZeroNet-TTCARTURA"
-  "https://www.youtube.com/@Dr.PsyPong"
-  "https://www.youtube.com/@ITTFWorld"
-  "https://www.youtube.com/@TableTennisEngland"
-  "https://www.youtube.com/@AndreasLevenko"
-  "https://www.youtube.com/@tabletennisdailyplus"
-  "https://www.youtube.com/@TableTennisDailyCast"
-  "https://www.youtube.com/@PongFoxTabletennis"
-  "https://www.youtube.com/@World.Table.Tennis"
-  "https://www.youtube.com/@SpinClips"
-  "https://www.youtube.com/@ttlondon2012"
-  "https://www.youtube.com/@MagnusEffectTT"
-  "https://www.youtube.com/@DiegoTTTube"
-  "https://www.youtube.com/@ttjapan3023"
-  "https://www.youtube.com/@perdagermo734"
-  "https://www.youtube.com/@GecaPhoenix"
-  "https://www.youtube.com/@GecaPhoenix2"
-  "https://www.youtube.com/@ttstars"
-  "https://www.youtube.com/@TTSTARSERIES"
-  "https://www.youtube.com/@TTCrazyShot"
-  "https://www.youtube.com/@OlavKTTT"
-  "https://www.youtube.com/@pingponggoris"
-  "https://www.youtube.com/@VideoTTMondovi"
-  "https://www.youtube.com/@pierluigiloi9961"
-  "https://www.youtube.com/@TtblDe"
-  "https://www.youtube.com/@AugustinePingPong"
-  "https://www.youtube.com/@samuel_piatanesi"
-  "https://www.youtube.com/@ChulongNieTableTennis"
-  "https://www.youtube.com/@conhuang0"
-)
+CHANNELS_FILE="${CHANNELS_FILE:-$SCRIPT_DIR/youtube_channels.txt}"
+EMIT_SPECS_ONLY=0
 
 usage() {
   cat <<'EOF'
@@ -73,6 +15,8 @@ Uso: ./scripts/report_youtube_recent_channels.sh [opzioni]
 
 Opzioni:
   --days N             Intervallo giorni: 0=today, 1=ieri+oggi, 2=2 giorni+oggi, ...
+  --channels-file FILE File statico con la lista URL canali
+  --emit-specs         Stampa solo righe machine-readable nel formato numero|url
   -h, --help           Mostra questo aiuto
 
 Ambiente:
@@ -85,6 +29,14 @@ while [ "$#" -gt 0 ]; do
     --days)
       DAYS="${2:-}"
       shift 2
+      ;;
+    --channels-file)
+      CHANNELS_FILE="${2:-}"
+      shift 2
+      ;;
+    --emit-specs)
+      EMIT_SPECS_ONLY=1
+      shift
       ;;
     -h|--help)
       usage
@@ -100,6 +52,11 @@ done
 
 if ! command -v python3 >/dev/null 2>&1; then
   echo "Errore: python3 non trovato nel PATH." >&2
+  exit 1
+fi
+
+if [[ ! -f "$CHANNELS_FILE" ]]; then
+  echo "Errore: file canali non trovato: $CHANNELS_FILE" >&2
   exit 1
 fi
 
@@ -247,8 +204,14 @@ print(f'{video_count}\t{short_count}')
 PY
 }
 
-printf 'Canali YouTube con video nel range %s -> %s\n' "$START_HUMAN" "$END_HUMAN"
-printf 'Scansiono la lista canali, risolvo il channel_id ogni volta e conto i video tramite feed RSS.\n'
+mapfile -t YT_CHANNEL_SPECS < <(
+  grep -Ev '^[[:space:]]*($|#)' "$CHANNELS_FILE"
+)
+
+if [[ "$EMIT_SPECS_ONLY" != "1" ]]; then
+  printf 'Canali YouTube con video nel range %s -> %s\n' "$START_HUMAN" "$END_HUMAN"
+  printf 'Scansiono la lista canali, risolvo il channel_id ogni volta e conto i video tramite feed RSS.\n'
+fi
 
 RESULTS_FILE="$(mktemp)"
 trap 'rm -f "$RESULTS_FILE"' EXIT
@@ -269,7 +232,9 @@ while IFS= read -r url; do
   channel_label="${url##*/}"
   channel_label="${channel_label#@}"
 
-  printf '[%s/%s] Risolvo channel_id per @%s...\n' "$channel_index" "$total_channels" "$channel_label"
+  if [[ "$EMIT_SPECS_ONLY" != "1" ]]; then
+    printf '[%s/%s] Risolvo channel_id per @%s...\n' "$channel_index" "$total_channels" "$channel_label"
+  fi
   channel_id_output="$(resolve_channel_id "$url")"
   if [[ "$channel_id_output" == ERROR$'\t'* ]]; then
     echo "ATTENZIONE: impossibile risolvere channel_id per ${url}" >&2
@@ -278,8 +243,10 @@ while IFS= read -r url; do
   fi
 
   channel_id="$channel_id_output"
-  printf '[%s/%s] channel_id: %s\n' "$channel_index" "$total_channels" "$channel_id"
-  printf '[%s/%s] Leggo feed RSS e conto i video nel range...\n' "$channel_index" "$total_channels"
+  if [[ "$EMIT_SPECS_ONLY" != "1" ]]; then
+    printf '[%s/%s] channel_id: %s\n' "$channel_index" "$total_channels" "$channel_id"
+    printf '[%s/%s] Leggo feed RSS e conto i video nel range...\n' "$channel_index" "$total_channels"
+  fi
 
   feed_count_output="$(count_recent_items_from_feed "$channel_id")"
   if [[ "$feed_count_output" == ERROR$'\t'* ]]; then
@@ -291,15 +258,28 @@ while IFS= read -r url; do
   IFS=$'\t' read -r recent_videos recent_shorts <<< "$feed_count_output"
   recent_videos="${recent_videos:-0}"
   recent_shorts="${recent_shorts:-0}"
-  printf '[%s/%s] @%s -> %s video, %s shorts nel range\n' "$channel_index" "$total_channels" "$channel_label" "$recent_videos" "$recent_shorts"
+  if [[ "$EMIT_SPECS_ONLY" != "1" ]]; then
+    printf '[%s/%s] @%s -> %s video, %s shorts nel range\n' "$channel_index" "$total_channels" "$channel_label" "$recent_videos" "$recent_shorts"
+  fi
 
   if [ "$recent_videos" -gt 0 ] || [ "$recent_shorts" -gt 0 ]; then
     matched_channels=$((matched_channels + 1))
     total_recent_videos=$((total_recent_videos + recent_videos))
     total_recent_shorts=$((total_recent_shorts + recent_shorts))
     printf '%s\t%s\t%s\n' "@${channel_label}" "$recent_videos" "$recent_shorts" >> "$RESULTS_FILE"
+    if [[ "$EMIT_SPECS_ONLY" == "1" && "$recent_videos" -gt 0 ]]; then
+      playlist_depth="$recent_videos"
+      if [ "$playlist_depth" -eq 15 ]; then
+        playlist_depth=50
+      fi
+      printf '%s|%s\n' "$playlist_depth" "$url"
+    fi
   fi
 done < <(printf '%s\n' "${YT_CHANNEL_SPECS[@]}")
+
+if [[ "$EMIT_SPECS_ONLY" == "1" ]]; then
+  exit 0
+fi
 
 printf '\nReport finale ordinato per numero di video pubblicati nel range:\n'
 printf '%-28s %8s %8s\n' 'Canale' 'video' 'shorts'

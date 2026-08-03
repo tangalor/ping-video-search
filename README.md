@@ -88,11 +88,50 @@ Pipeline completa:
 bash scripts/aggiorna_dati.sh
 ```
 
+Pipeline completa con finestra custom per i canali recenti:
+
+```bash
+YT_CHANNEL_REPORT_DAYS=5 bash scripts/aggiorna_dati.sh
+```
+
+Pipeline completa con lista custom nel vecchio formato `numero|url`:
+
+```bash
+YT_CHANNEL_SPECS_FILE=scripts/youtube_channel_specs.custom.example.txt bash scripts/aggiorna_dati.sh
+```
+
+Pipeline completa con file custom fisso (senza specificare path):
+
+```bash
+bash scripts/aggiorna_dati.sh --use-custom-channel-specs
+```
+
 Saltando download (da step 4):
 
 ```bash
 bash scripts/aggiorna_dati.sh --skip-download
 ```
+
+### Selezione canali (locale)
+
+La pipeline supporta due modalita per costruire `YT_CHANNEL_SPECS`:
+
+- **Modalita report RSS (default)**
+  - lancia `scripts/report_youtube_recent_channels.sh`
+  - usa `scripts/youtube_channels.txt` come sorgente URL (o `YT_CHANNELS_FILE` se impostata)
+  - include solo i canali con `video > 0` nella finestra `YT_CHANNEL_REPORT_DAYS` (default `3`)
+  - quando genera le righe `numero|url` per la pipeline, applica la regola: se `numero == 15` allora usa `50`; per gli altri valori usa il numero calcolato
+  - stampa sempre a terminale l'elenco finale `numero|url` dei canali selezionati prima del download
+
+- **Modalita custom fissa**
+  - con `--use-custom-channel-specs` usa automaticamente `scripts/youtube_channel_specs.custom.example.txt`
+  - utile per prime scansioni complete in formato legacy `numero|url`
+
+Precedenza locale:
+
+- se passi `--use-custom-channel-specs`, viene forzato il file custom fisso
+- se non passi il flag, resta il comportamento default RSS
+- in alternativa al flag, puoi ancora impostare manualmente `YT_CHANNEL_SPECS_FILE=/path/file`
 
 Server locale SPA:
 
@@ -108,6 +147,25 @@ Trigger supportati:
 
 - `workflow_dispatch` (manuale)
 - `schedule` (cron)
+
+Input utili nel trigger manuale:
+
+- `skip_download`
+- `channel_report_days`
+- `use_custom_channel_specs`
+
+Comportamento:
+
+- se `use_custom_channel_specs` e `false`, la pipeline genera la lista canali dal report RSS usando `channel_report_days`
+- se `use_custom_channel_specs` e `true`, usa automaticamente `scripts/youtube_channel_specs.custom.example.txt` nel formato `numero|url` per una scansione custom completa
+- in entrambi i casi, prima del download viene stampato a log/console l'elenco effettivo `numero|url` usato dalla pipeline
+
+Note operative CI:
+
+- il checkbox `use_custom_channel_specs` e l'equivalente CI del flag locale `--use-custom-channel-specs`
+- se il checkbox e `false`, `channel_report_days` e attivo
+- se il checkbox e `true`, `channel_report_days` viene ignorato per la selezione canali
+- nei run schedulati (`schedule`) il checkbox non e impostabile e si usa il comportamento di default (report RSS)
 
 Artifact caricati a fine run:
 
@@ -143,6 +201,12 @@ Python package:
 
 - `appunti.txt`
   - note operative/manuali.
+
+- `scripts/youtube_channels.txt`
+  - lista statica condivisa dei canali YouTube usata come default dal report RSS.
+
+- `scripts/youtube_channel_specs.custom.example.txt`
+  - esempio di lista custom nel vecchio formato `numero|url` per prime scansioni complete di canali.
 
 - `atleti_italiani.txt`
 - `atleti_italiani_invertiti.txt`

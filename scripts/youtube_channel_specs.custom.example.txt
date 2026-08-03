@@ -1,0 +1,16 @@
+# Formato: numero_video_da_scansionare|url_canale
+# Le righe vuote e quelle che iniziano con # vengono ignorate.
+
+
+1500|https://www.youtube.com/@MALONGFanmadeChannel
+3|https://www.youtube.com/@AugustinePingPong
+100|https://www.youtube.com/@samuel_piatanesi
+10|https://www.youtube.com/@ChulongNieTableTennis
+3|https://www.youtube.com/@conhuang0
+650|https://www.youtube.com/@familiasunami
+200|https://www.youtube.com/@pingpongweekend
+3000|https://www.youtube.com/@pong4life
+1550|https://www.youtube.com/@orangecountytabletennis
+200|https://www.youtube.com/@kl2show
+3500|https://www.youtube.com/@majorleaguetabletennis
+20010|https://www.youtube.com/@tteliteseries7892

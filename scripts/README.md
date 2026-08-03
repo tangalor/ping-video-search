@@ -15,13 +15,40 @@ Questa cartella contiene tutti gli script shell e Python del progetto.
     6. Split SQL in chunk con `split_upsert_sql_chunks.py`
     7. Esecuzione chunk con `esegui_upsert_chunks_psql.sh`
   - Invia anche una mail di fine esecuzione usando il log terminale (se `mail`/`sendmail` sono disponibili).
+  - Modalita canali supportate:
+    - default: genera `YT_CHANNEL_SPECS` dal report RSS usando solo la colonna `video`.
+    - custom: se imposti `YT_CHANNEL_SPECS_FILE`, usa un file nel formato `numero|url`.
+    - custom (rapida): con `--use-custom-channel-specs` usa automaticamente `scripts/youtube_channel_specs.custom.example.txt`.
+  - Prima del download stampa sempre a console (e nel log verboso) l'elenco finale `numero|url` dei canali selezionati.
+  - Regole di precedenza:
+    - con `--use-custom-channel-specs` viene forzato il file custom fisso;
+    - senza flag, se `YT_CHANNEL_SPECS_FILE` e impostata usa quel file;
+    - altrimenti usa il report RSS (`YT_CHANNEL_REPORT_DAYS`, default `3`).
+  - Variabili utili:
+    - `YT_CHANNEL_REPORT_DAYS` default `3`
+    - `YT_CHANNELS_FILE` default `scripts/youtube_channels.txt`
+    - `YT_CHANNEL_SPECS_FILE` opzionale per liste custom complete
 
 - `report_youtube_recent_channels.sh`
-  - Legge la lista canali da `aggiorna_dati.sh` e stampa una tabella con solo i canali che hanno pubblicato video negli ultimi N giorni.
-  - Usa `yt-dlp` per contare i video recenti per ogni canale.
+  - Legge la lista canali da `scripts/youtube_channels.txt` (o da `--channels-file`) e usa i feed RSS YouTube per contare i contenuti recenti.
+  - Distingue `video` e `shorts` in base alla URL dell'entry del feed.
   - Opzioni utili:
     - `--days N` per impostare la finestra temporale.
-    - `--show-matches` per vedere anche i singoli video trovati.
+    - `--channels-file FILE` per cambiare lista canali sorgente.
+    - `--emit-specs` per produrre solo righe `numero|url`, usate da `aggiorna_dati.sh`.
+  - Regola su `--emit-specs`: se il numero video calcolato e `15`, emette `50|url` per approfondire la scansione; per gli altri valori emette il numero calcolato.
+
+- `youtube_channels.txt`
+  - Lista statica condivisa dei canali YouTube di default.
+
+- `youtube_channel_specs.custom.example.txt`
+  - Esempio di file custom nel formato `numero|url` per prime scansioni complete.
+  - In CI viene usato automaticamente quando `use_custom_channel_specs=true`.
+
+- `.github/workflows/aggiorna-dati.yml`
+  - In `workflow_dispatch` espone:
+    - `use_custom_channel_specs` (checkbox): usa il file custom fisso.
+    - `channel_report_days`: usato solo quando il checkbox e disattivato.
 
 - `esegui_upsert_chunks_psql.sh`
   - Esegue i file in `output_upsert_chunks/output_upsert_from_csv_part_*.sql`.
@@ -56,6 +83,36 @@ Dalla root del progetto:
 
 ```bash
 bash scripts/aggiorna_dati.sh
+```
+
+Usando il report RSS sugli ultimi 5 giorni:
+
+```bash
+YT_CHANNEL_REPORT_DAYS=5 bash scripts/aggiorna_dati.sh
+```
+
+Usando una lista custom `numero|url`:
+
+```bash
+YT_CHANNEL_SPECS_FILE=scripts/youtube_channel_specs.custom.example.txt bash scripts/aggiorna_dati.sh
+```
+
+Usando il file custom fisso senza specificare path:
+
+```bash
+bash scripts/aggiorna_dati.sh --use-custom-channel-specs
+```
+
+Solo report RSS con tabella finale:
+
+```bash
+bash scripts/report_youtube_recent_channels.sh --days 3
+```
+
+Solo generazione della lista `numero|url` per la pipeline dati:
+
+```bash
+bash scripts/report_youtube_recent_channels.sh --days 3 --emit-specs
 ```
 
 Solo da step 4 in poi:
