@@ -16,6 +16,7 @@ on:
 jobs:
   aggiorna-dati:
     runs-on: ubuntu-latest
+    environment: github-pages
     timeout-minutes: 360
 
     steps:
@@ -40,23 +41,26 @@ jobs:
       - name: Verifica secrets richiesti
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           if [ -z "${SUPABASE_DB_URL}" ]; then
             echo "Secret mancante: SUPABASE_DB_URL"
             exit 1
           fi
+          echo "ok SUPABASE_DB_URL e valorizzata"
 
-      - name: Crea file .env runtime
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          cat > .env <<EOF
-          SUPABASE_DB_URL="${SUPABASE_DB_URL}"
-          SUPABASE_URL="${SUPABASE_URL}"
-          SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY}"
-          EOF
+          if [ -z "${SUPABASE_URL}" ]; then
+            echo "Warning: SUPABASE_URL non valorizzata (opzionale per questo workflow)"
+          else
+            echo "ok SUPABASE_URL e valorizzata"
+          fi
+
+          if [ -z "${SUPABASE_SERVICE_ROLE_KEY}" ]; then
+            echo "Warning: SUPABASE_SERVICE_ROLE_KEY non valorizzata (opzionale per questo workflow)"
+          else
+            echo "ok SUPABASE_SERVICE_ROLE_KEY e valorizzata"
+          fi
 
       - name: Rendi eseguibili gli script
         run: |
@@ -66,6 +70,9 @@ jobs:
       - name: Esegui pipeline aggiorna_dati
         env:
           SKIP_DOWNLOAD_INPUT: ${{ github.event.inputs.skip_download }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           if [ "${SKIP_DOWNLOAD_INPUT}" = "true" ]; then
             ./scripts/aggiorna_dati.sh --skip-download

@@ -101,17 +101,14 @@ if ! command -v psql >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ ! -f "$ENV_FILE" ]]; then
-  echo "Errore: file env non trovato: $ENV_FILE" >&2
-  exit 1
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  source "$ENV_FILE"
+  set +a
 fi
 
-set -a
-source "$ENV_FILE"
-set +a
-
 if [[ -z "${SUPABASE_DB_URL:-}" ]]; then
-  echo "Errore: SUPABASE_DB_URL non impostata in $ENV_FILE" >&2
+  echo "Errore: SUPABASE_DB_URL non impostata (imposta la variabile ambiente o definiscila in $ENV_FILE)" >&2
   exit 1
 fi
 
