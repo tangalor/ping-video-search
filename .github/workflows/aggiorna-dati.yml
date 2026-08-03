@@ -62,6 +62,18 @@ jobs:
             echo "ok SUPABASE_SERVICE_ROLE_KEY e valorizzata"
           fi
 
+      - name: Prepara cookie yt-dlp (opzionale)
+        env:
+          YTDLP_COOKIES_B64: ${{ secrets.YTDLP_COOKIES_B64 }}
+        run: |
+          if [ -z "${YTDLP_COOKIES_B64}" ]; then
+            echo "Warning: YTDLP_COOKIES_B64 non valorizzata (potrebbero comparire blocchi anti-bot su YouTube)"
+          else
+            printf '%s' "${YTDLP_COOKIES_B64}" | base64 -d > .yt-dlp-cookies.txt
+            chmod 600 .yt-dlp-cookies.txt
+            echo "ok YTDLP_COOKIES_B64 e valorizzata"
+          fi
+
       - name: Rendi eseguibili gli script
         run: |
           chmod +x scripts/aggiorna_dati.sh
@@ -73,12 +85,18 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          YTDLP_COOKIES_FILE: ./.yt-dlp-cookies.txt
         run: |
           if [ "${SKIP_DOWNLOAD_INPUT}" = "true" ]; then
             ./scripts/aggiorna_dati.sh --skip-download
           else
             ./scripts/aggiorna_dati.sh
           fi
+
+      - name: Cleanup cookie yt-dlp
+        if: always()
+        run: |
+          rm -f .yt-dlp-cookies.txt
 
       - name: Carica log come artifact
         if: always()

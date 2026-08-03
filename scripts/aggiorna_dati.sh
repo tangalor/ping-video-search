@@ -18,6 +18,9 @@ TERMINAL_LOG_FILE="$LOG_DIR/aggiorna_dati_terminal_${TIMESTAMP}.log"
 SKIP_DOWNLOAD=0
 NOTIFY_EMAIL_TO="tangalor@gmail.com"
 NOTIFY_EMAIL_SUBJECT="PingTV / script di aggiunta video completato"
+YTDLP_COOKIES_FILE="${YTDLP_COOKIES_FILE:-$ROOT_DIR/.yt-dlp-cookies.txt}"
+YTDLP_EXTRACTOR_ARGS="${YTDLP_EXTRACTOR_ARGS:-youtube:player_client=android,web}"
+YTDLP_USER_AGENT="${YTDLP_USER_AGENT:-}"
 mkdir -p "$BACKUP_ROOT" "dati_grezzi" "letture_pulite" "$LOG_DIR"
 
 # Capture only what is printed to terminal (stdout/stderr) in a dedicated log.
@@ -229,6 +232,7 @@ run_yt_channel_with_progress() {
   local channel_eta total_eta
   local total_units_done total_units_total
   local last_render_sec=-1
+  local -a yt_cmd
 
   log_msg "Inizio canale ${channel_index}/${total_channels}: ${channel_url} (playlist-end=${playlist_end})"
 
@@ -238,6 +242,31 @@ run_yt_channel_with_progress() {
 
   render_yt_panel "$channel_index" "$total_channels" "$channel_label" 0 "$fallback_total" "$channel_info" "Preparazione..." "$channel_eta" "$total_eta"
   last_render_sec="$SECONDS"
+
+  yt_cmd=(
+    yt-dlp
+    --playlist-end "$playlist_end"
+    --ignore-errors
+    --no-download
+    -t sleep
+    --write-info-json
+    --output "dati_grezzi/%(id)s"
+  )
+
+  if [ -f "$YTDLP_COOKIES_FILE" ]; then
+    yt_cmd+=(--cookies "$YTDLP_COOKIES_FILE")
+    log_msg "yt-dlp: cookies attivi da $YTDLP_COOKIES_FILE"
+  fi
+
+  if [ -n "$YTDLP_EXTRACTOR_ARGS" ]; then
+    yt_cmd+=(--extractor-args "$YTDLP_EXTRACTOR_ARGS")
+  fi
+
+  if [ -n "$YTDLP_USER_AGENT" ]; then
+    yt_cmd+=(--user-agent "$YTDLP_USER_AGENT")
+  fi
+
+  yt_cmd+=("$channel_url")
 
   while IFS= read -r line; do
     local should_render=0
@@ -288,7 +317,7 @@ run_yt_channel_with_progress() {
     render_yt_panel "$channel_index" "$total_channels" "$channel_label" "$current_video" "$detected_total" "$channel_info" "$last_log" "$channel_eta" "$total_eta"
   done < <(
     set +e
-    yt-dlp --playlist-end "$playlist_end" --ignore-errors --no-download -t sleep --write-info-json --output "dati_grezzi/%(id)s" "$channel_url" 2>&1
+    "${yt_cmd[@]}" 2>&1
     printf '__YT_EXIT__:%s\n' "$?"
   )
 
