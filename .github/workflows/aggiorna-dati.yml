@@ -188,6 +188,8 @@ jobs:
           YT_CHANNEL_REPORT_DAYS: ${{ github.event.inputs.channel_report_days || '3' }}
           USE_CUSTOM_CHANNEL_SPECS: ${{ github.event.inputs.use_custom_channel_specs || 'false' }}
           DISABLE_PROGRESS_BARS: "1"
+          YTDLP_EXTRACTOR_ARGS: "youtube:player_client=android,mweb"
+          YTDLP_SLEEP_REQUESTS: "1.50"
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

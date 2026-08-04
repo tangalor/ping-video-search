@@ -20,8 +20,9 @@ NOTIFY_EMAIL_TO="tangalor@gmail.com"
 NOTIFY_EMAIL_SUBJECT="PingTV / script di aggiunta video completato"
 DISABLE_PROGRESS_BARS="${DISABLE_PROGRESS_BARS:-}"
 YTDLP_COOKIES_FILE="${YTDLP_COOKIES_FILE:-$ROOT_DIR/.yt-dlp-cookies.txt}"
-YTDLP_EXTRACTOR_ARGS="${YTDLP_EXTRACTOR_ARGS:-youtube:player_client=android}"
+YTDLP_EXTRACTOR_ARGS="${YTDLP_EXTRACTOR_ARGS:-youtube:player_client=android,mweb}"
 YTDLP_USER_AGENT="${YTDLP_USER_AGENT:-}"
+YTDLP_SLEEP_REQUESTS="${YTDLP_SLEEP_REQUESTS:-0.75}"
 YT_CHANNELS_FILE="${YT_CHANNELS_FILE:-$ROOT_DIR/scripts/youtube_channels.txt}"
 YT_CHANNEL_SPECS_FILE="${YT_CHANNEL_SPECS_FILE:-}"
 DEFAULT_CUSTOM_CHANNEL_SPECS_FILE="$ROOT_DIR/scripts/youtube_channel_specs.custom.example.txt"
@@ -269,6 +270,7 @@ run_yt_channel_with_progress() {
   local channel_eta total_eta
   local total_units_done total_units_total
   local last_render_sec=-1
+  local hidden_warning_count=0
   local -a yt_cmd
 
   log_msg "Inizio canale ${channel_index}/${total_channels}: ${channel_url} (playlist-end=${playlist_end})"
@@ -291,6 +293,7 @@ run_yt_channel_with_progress() {
     --ignore-no-formats-error
     --no-download
     -t sleep
+    --sleep-requests "$YTDLP_SLEEP_REQUESTS"
     --write-info-json
     --output "dati_grezzi/%(id)s"
   )
@@ -335,6 +338,7 @@ run_yt_channel_with_progress() {
       last_log="$clean_line"
       should_render=1
       force_render=1
+      hidden_warning_count=$((hidden_warning_count + 1))
     fi
 
     if [ "$should_render" -eq 0 ]; then
@@ -342,6 +346,9 @@ run_yt_channel_with_progress() {
     fi
 
     if [[ "$DISABLE_PROGRESS_BARS" == "1" ]]; then
+      if [[ "$clean_line" =~ ^\[warning\]|^ERROR:|^WARNING: ]]; then
+        continue
+      fi
       printf '   [%s/%s %s] %s\n' "$channel_index" "$total_channels" "$channel_label" "$clean_line"
     fi
 
@@ -370,6 +377,9 @@ run_yt_channel_with_progress() {
   if [ "$yt_exit_code" -eq 0 ]; then
     if [[ "$DISABLE_PROGRESS_BARS" == "1" ]]; then
       echo "   [${channel_index}/${total_channels} ${channel_label}] completato"
+      if [ "$hidden_warning_count" -gt 0 ]; then
+        echo "   [${channel_index}/${total_channels} ${channel_label}] avvisi nascosti: ${hidden_warning_count} (dettagli nel log verboso)"
+      fi
     fi
     now_sec="$SECONDS"
     total_elapsed=$(( now_sec - YT_COLLECTION_START_SEC ))
@@ -382,6 +392,9 @@ run_yt_channel_with_progress() {
     if [[ "$DISABLE_PROGRESS_BARS" == "1" ]]; then
       echo "   [${channel_index}/${total_channels} ${channel_label}] fallito (exit ${yt_exit_code})"
       echo "   [${channel_index}/${total_channels} ${channel_label}] ultimo evento: ${last_log}"
+      if [ "$hidden_warning_count" -gt 0 ]; then
+        echo "   [${channel_index}/${total_channels} ${channel_label}] avvisi nascosti: ${hidden_warning_count} (dettagli nel log verboso)"
+      fi
     fi
     now_sec="$SECONDS"
     total_elapsed=$(( now_sec - YT_COLLECTION_START_SEC ))
