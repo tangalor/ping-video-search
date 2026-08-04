@@ -224,13 +224,27 @@ for index in "${!sql_files[@]}"; do
   sql_file="${sql_files[$index]}"
   file_name="$(basename "$sql_file")"
   current=$((index + 1))
+  chunk_start_sec="$SECONDS"
+  chunk_elapsed_sec=0
   tmp_output="$(mktemp)"
+
+  if [[ "$DISABLE_PROGRESS_BARS" == "1" ]]; then
+    echo "[${current}/${total_files}] Avvio chunk: ${file_name}"
+  fi
 
   render_progress_panel "$current" "$total_files" "$file_name" "(in esecuzione)"
 
   if run_psql_with_retries "$sql_file" "$tmp_output"; then
+    chunk_elapsed_sec=$(( SECONDS - chunk_start_sec ))
+    if [[ "$DISABLE_PROGRESS_BARS" == "1" ]]; then
+      echo "[${current}/${total_files}] Completato chunk: ${file_name} (${chunk_elapsed_sec}s)"
+    fi
     render_progress_panel "$current" "$total_files" "$file_name" "${COLOR_GREEN}[success]${COLOR_RESET}"
   else
+    chunk_elapsed_sec=$(( SECONDS - chunk_start_sec ))
+    if [[ "$DISABLE_PROGRESS_BARS" == "1" ]]; then
+      echo "[${current}/${total_files}] Errore chunk: ${file_name} (${chunk_elapsed_sec}s)"
+    fi
     render_progress_panel "$current" "$total_files" "$file_name" "${COLOR_RED}[errore]${COLOR_RESET}"
     print_status "ERRORE" "$file_name -> esecuzione fallita" "$COLOR_RED"
     cat "$tmp_output" >&2

@@ -3,6 +3,7 @@ import os
 import glob
 import csv
 import sys
+import time
 import unicodedata
 from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
@@ -51,6 +52,11 @@ TRANSLATION_PANEL_LINES = 2
 translation_panel_rendered = False
 last_non_tty_pct_reported = -1
 translation_progress_stream = None
+TRANSLATION_RETRIES = int(os.environ.get("TRANSLATION_RETRIES", "3"))
+TRANSLATION_RETRY_DELAY = float(os.environ.get("TRANSLATION_RETRY_DELAY", "1.25"))
+TRANSLATION_ERROR_LOG_LIMIT = int(os.environ.get("TRANSLATION_ERROR_LOG_LIMIT", "5"))
+translation_error_count = 0
+translation_error_log_count = 0
 
 
 def carica_atleti_extra(percorso_file):
@@ -186,10 +192,40 @@ def render_translation_panel(current, total, video_id, status):
             print(f"{line1} | {line2}", flush=True)
             last_non_tty_pct_reported = pct
 
+
+def _safe_translate(testo, source_lang, target_lang):
+    last_exc = None
+    for attempt in range(1, max(1, TRANSLATION_RETRIES) + 1):
+        try:
+            return GoogleTranslator(source=source_lang, target=target_lang).translate(testo)
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max(1, TRANSLATION_RETRIES):
+                time.sleep(TRANSLATION_RETRY_DELAY * attempt)
+    raise last_exc
+
+
+def _is_noise_text(testo):
+    # Avoid hitting translator for values that are mostly URLs, numbers, symbols, or separators.
+    normalized = (testo or "").strip()
+    if not normalized:
+        return True
+    letters = sum(1 for ch in normalized if ch.isalpha())
+    if letters < 3:
+        return True
+    ratio = letters / max(1, len(normalized))
+    return ratio < 0.18
+
 def gestisci_lingue(testo):
     """Rileva la lingua e restituisce una tupla con la versione (italiano, inglese)"""
+    global translation_error_count
+    global translation_error_log_count
+
     if not testo or testo.strip() == "":
         return "", ""
+
+    if _is_noise_text(testo):
+        return testo, testo
 
     # 1. Rilevamento della lingua
     try:
@@ -201,13 +237,16 @@ def gestisci_lingue(testo):
     try:
         if lingua_rilevata == "it":
             italiano = testo
-            inglese = GoogleTranslator(source='it', target='en').translate(testo)
+            inglese = _safe_translate(testo, "it", "en")
         else:
             # Se è inglese (o qualsiasi altra lingua come cinese o tedesco), traduciamo in italiano
-            inglese = testo if lingua_rilevata == "en" else GoogleTranslator(source='auto', target='en').translate(testo)
-            italiano = GoogleTranslator(source='auto', target='it').translate(testo)
+            inglese = testo if lingua_rilevata == "en" else _safe_translate(testo, "auto", "en")
+            italiano = _safe_translate(testo, "auto", "it")
     except Exception as e:
-        print(f"Errore di traduzione, uso il testo originale come fallback: {e}")
+        translation_error_count += 1
+        if translation_error_log_count < TRANSLATION_ERROR_LOG_LIMIT:
+            print(f"Errore di traduzione, uso il testo originale come fallback: {e}")
+            translation_error_log_count += 1
         italiano, inglese = testo, testo
 
     return italiano, inglese
@@ -273,6 +312,13 @@ if totale_file and sys.stdout.isatty():
     if stream is not None:
         stream.write("\n")
         stream.flush()
+
+if translation_error_count > 0:
+    suppressed = max(0, translation_error_count - translation_error_log_count)
+    print(
+        f"Traduzioni con fallback: {translation_error_count}"
+        f" (messaggi mostrati: {translation_error_log_count}, nascosti: {suppressed})"
+    )
 
 print(f"✅ Fatto! File multilingua salvati in '{cartella_pulita}'.")
 
