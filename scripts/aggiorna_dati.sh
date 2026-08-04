@@ -273,6 +273,10 @@ run_yt_channel_with_progress() {
 
   log_msg "Inizio canale ${channel_index}/${total_channels}: ${channel_url} (playlist-end=${playlist_end})"
 
+  if [[ "$DISABLE_PROGRESS_BARS" == "1" ]]; then
+    echo " - canale ${channel_index}/${total_channels}: ${channel_url} (playlist-end=${playlist_end})"
+  fi
+
   channel_start_sec="$SECONDS"
   channel_eta=-1
   total_eta=-1
@@ -284,6 +288,7 @@ run_yt_channel_with_progress() {
     yt-dlp
     --playlist-end "$playlist_end"
     --ignore-errors
+    --ignore-no-formats-error
     --no-download
     -t sleep
     --write-info-json
@@ -336,6 +341,10 @@ run_yt_channel_with_progress() {
       continue
     fi
 
+    if [[ "$DISABLE_PROGRESS_BARS" == "1" ]]; then
+      printf '   [%s/%s %s] %s\n' "$channel_index" "$total_channels" "$channel_label" "$clean_line"
+    fi
+
     now_sec="$SECONDS"
     if [ "$force_render" -eq 0 ] && [ "$last_render_sec" -ge 0 ] && [ $(( now_sec - last_render_sec )) -lt "$YT_MIN_UPDATE_INTERVAL" ]; then
       continue
@@ -359,6 +368,9 @@ run_yt_channel_with_progress() {
   )
 
   if [ "$yt_exit_code" -eq 0 ]; then
+    if [[ "$DISABLE_PROGRESS_BARS" == "1" ]]; then
+      echo "   [${channel_index}/${total_channels} ${channel_label}] completato"
+    fi
     now_sec="$SECONDS"
     total_elapsed=$(( now_sec - YT_COLLECTION_START_SEC ))
     total_units_done=$(( channel_index * 1000 ))
@@ -367,6 +379,10 @@ run_yt_channel_with_progress() {
     render_yt_panel "$channel_index" "$total_channels" "$channel_label" "$detected_total" "$detected_total" "$channel_info" "Completato" 0 "$total_eta"
     log_msg "Canale completato: ${channel_url}"
   else
+    if [[ "$DISABLE_PROGRESS_BARS" == "1" ]]; then
+      echo "   [${channel_index}/${total_channels} ${channel_label}] fallito (exit ${yt_exit_code})"
+      echo "   [${channel_index}/${total_channels} ${channel_label}] ultimo evento: ${last_log}"
+    fi
     now_sec="$SECONDS"
     total_elapsed=$(( now_sec - YT_COLLECTION_START_SEC ))
     total_units_done=$(( (channel_index - 1) * 1000 + ( current_video * 1000 / (detected_total > 0 ? detected_total : 1) ) ))
