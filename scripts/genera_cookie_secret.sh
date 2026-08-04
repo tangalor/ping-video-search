@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEFAULT_COOKIE_FILE="$PWD/cookies.txt"
 SECRET_KEY_NAME="YTDLP_COOKIES_B64"
 SECRET_MAX_CHARS=65000
+ALLOWED_COOKIE_NAMES="CONSENT SOCS LOGIN_INFO SID HSID SSID APISID SAPISID SIDCC SEARCH_SAMESITE PREF GPS YSC VISITOR_INFO1_LIVE VISITOR_PRIVACY_METADATA AEC NID __Secure-1PSID __Secure-1PSIDCC __Secure-1PSIDTS __Secure-1PAPISID __Secure-3PSID __Secure-3PSIDCC __Secure-3PSIDTS __Secure-3PAPISID __Secure-ROLLOUT_TOKEN __Secure-YNID"
 
 usage() {
   cat <<'EOF'
@@ -51,30 +52,52 @@ fi
 FILTERED_COOKIE_FILE="$(mktemp)"
 trap 'rm -f "$FILTERED_COOKIE_FILE"' EXIT
 
-# Keep Netscape header/comments and only domains useful for yt-dlp on YouTube.
-awk '
+# Keep Netscape header/comments and only the root domains and cookie names
+# that are typically relevant for authenticated YouTube requests via yt-dlp.
+awk -v env_allowed="$ALLOWED_COOKIE_NAMES" '
+  BEGIN {
+    split(env_allowed, allowed_arr, " ")
+    for (idx in allowed_arr) {
+      allowed[allowed_arr[idx]] = 1
+    }
+  }
   /^#/ { print; next }
   NF < 7 { next }
   {
     domain = $1
-    if (domain ~ /(youtube\\.com|google\\.com|googlevideo\\.com|ytimg\\.com)$/) {
+    name = $6
+    if ((domain == ".youtube.com" || domain == "youtube.com" || domain == "www.youtube.com" || domain == "m.youtube.com" || domain == ".google.com" || domain == "google.com" || domain == ".googlevideo.com" || domain == "googlevideo.com" || domain == ".ytimg.com" || domain == "ytimg.com") && (name in allowed)) {
       print
     }
   }
-' "$COOKIE_FILE" > "$FILTERED_COOKIE_FILE"
+  ' "$COOKIE_FILE" > "$FILTERED_COOKIE_FILE"
 
 FILTERED_LINES="$(grep -vc '^#' "$FILTERED_COOKIE_FILE" || true)"
 if [[ "$FILTERED_LINES" -le 0 ]]; then
-  # Fallback: accept any line containing target domains, regardless of exact export layout.
+  # Fallback 1: keep only exact root domains, without cookie-name allowlist.
+  awk '
+    /^#/ { print; next }
+    NF < 7 { next }
+    {
+      domain = $1
+      if (domain == ".youtube.com" || domain == "youtube.com" || domain == "www.youtube.com" || domain == "m.youtube.com" || domain == ".google.com" || domain == "google.com" || domain == ".googlevideo.com" || domain == "googlevideo.com" || domain == ".ytimg.com" || domain == "ytimg.com") {
+        print
+      }
+    }
+  ' "$COOKIE_FILE" > "$FILTERED_COOKIE_FILE"
+  FILTERED_LINES="$(grep -vc '^#' "$FILTERED_COOKIE_FILE" || true)"
+fi
+
+if [[ "$FILTERED_LINES" -le 0 ]]; then
+  # Fallback 2: accept any line containing target domains, regardless of exact export layout.
   grep -Ei '(^#)|youtube\.com|google\.com|googlevideo\.com|ytimg\.com' "$COOKIE_FILE" > "$FILTERED_COOKIE_FILE" || true
   FILTERED_LINES="$(grep -vc '^#' "$FILTERED_COOKIE_FILE" || true)"
 fi
 
 if [[ "$FILTERED_LINES" -le 0 ]]; then
-  echo "Attenzione: nessun cookie dominio YouTube rilevato con i filtri automatici." >&2
-  echo "Procedo usando il file originale senza filtro per evitare blocchi inutili." >&2
-  cp "$COOKIE_FILE" "$FILTERED_COOKIE_FILE"
-  FILTERED_LINES="$(grep -vc '^#' "$FILTERED_COOKIE_FILE" || true)"
+  echo "Errore: nessun cookie YouTube/Google utile rilevato dopo i filtri automatici." >&2
+  echo "Riesporta i cookie da un profilo browser loggato su YouTube e riprova." >&2
+  exit 1
 fi
 
 B64_VALUE="$(base64 < "$FILTERED_COOKIE_FILE" | tr -d '\n')"
