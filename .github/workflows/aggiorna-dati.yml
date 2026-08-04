@@ -168,7 +168,7 @@ jobs:
             exit 1
           fi
 
-          if ! yt-dlp --cookies .yt-dlp-cookies.txt --extractor-args "youtube:player_client=web" --skip-download --playlist-end 1 "https://www.youtube.com/@pingpongstyles/videos" >/dev/null 2>&1; then
+          if ! yt-dlp --cookies .yt-dlp-cookies.txt --extractor-args "youtube:player_client=android" --skip-download --playlist-end 1 "https://www.youtube.com/@pingpongstyles/videos" >/dev/null 2>&1; then
             echo "::warning::Smoke test yt-dlp fallito in precheck (possibile challenge anti-bot temporanea)."
             echo "::warning::Continuo comunque: la verifica definitiva avverra durante l'esecuzione pipeline."
           else
