@@ -380,6 +380,11 @@ run_yt_channel_with_progress() {
 }
 
 run_logged_step() {
+  if [ "$#" -lt 3 ]; then
+    echo "Errore interno: run_logged_step richiede almeno 3 argomenti (label, descrizione, comando)." >&2
+    exit 1
+  fi
+
   local step_label="$1"
   local command_desc="$2"
   shift 2
@@ -395,6 +400,11 @@ run_logged_step() {
 }
 
 run_logged_step_live() {
+  if [ "$#" -lt 3 ]; then
+    echo "Errore interno: run_logged_step_live richiede almeno 3 argomenti (label, descrizione, comando)." >&2
+    exit 1
+  fi
+
   local step_label="$1"
   local command_desc="$2"
   shift 2
@@ -407,6 +417,31 @@ run_logged_step_live() {
     echo "Errore durante: ${command_desc}. Dettagli nel log: $VERBOSE_LOG_FILE" >&2
     exit 1
   fi
+}
+
+print_generation_summary() {
+  local csv_records sql_inserts
+
+  csv_records="$({
+    python3 - "$ROOT_DIR/output.csv" <<'PY'
+import csv
+import sys
+
+path = sys.argv[1]
+count = 0
+with open(path, newline='', encoding='utf-8') as handle:
+    reader = csv.reader(handle, delimiter=';')
+    next(reader, None)
+    for _ in reader:
+        count += 1
+print(count)
+PY
+  } 2>/dev/null || printf 'N/D')"
+
+  sql_inserts="$({ grep -c '^INSERT INTO' "$SQL_SOURCE_FILE"; } 2>/dev/null || printf 'N/D')"
+
+  echo "[5/7] Confronto volumi generati: CSV record=${csv_records}, SQL INSERT=${sql_inserts}"
+  log_msg "[5/7] Confronto volumi generati: CSV record=${csv_records}, SQL INSERT=${sql_inserts}"
 }
 
 send_completion_email() {
@@ -552,17 +587,15 @@ else
 fi
 
 
-run_logged_step_live "[4/7] Elaborazione dati con ytp.py..." "[4/7] Avvio ytp.py" \
-  python3 -u scripts/ytp.py
+run_logged_step_live "[4/7] Elaborazione dati con ytp.py..." "[4/7] Avvio ytp.py" python3 -u scripts/ytp.py
 
-run_logged_step "[5/7] Generazione script SQL upsert da CSV best effort..." "[5/7] Avvio csv_to_supabase_upsert_sql.py" \
-  python3 scripts/csv_to_supabase_upsert_sql.py
+run_logged_step "[5/7] Generazione script SQL upsert da CSV best effort..." "[5/7] Avvio csv_to_supabase_upsert_sql.py" python3 scripts/csv_to_supabase_upsert_sql.py
 
-run_logged_step "[6/7] Validazione caratteri SQL + creazione chunk per Supabase..." "[6/7] Avvio split_upsert_sql_chunks.py" \
-  python3 scripts/split_upsert_sql_chunks.py --input "$SQL_SOURCE_FILE" --out-dir "$SQL_CHUNK_DIR" --chunk-size "$SQL_CHUNK_SIZE"
+print_generation_summary
 
-run_logged_step_live "[7/7] Esecuzione chunk SQL su Supabase via psql..." "[7/7] Avvio esegui_upsert_chunks_psql.sh" \
-  bash scripts/esegui_upsert_chunks_psql.sh
+run_logged_step "[6/7] Validazione caratteri SQL + creazione chunk per Supabase..." "[6/7] Avvio split_upsert_sql_chunks.py" python3 scripts/split_upsert_sql_chunks.py --input "$SQL_SOURCE_FILE" --out-dir "$SQL_CHUNK_DIR" --chunk-size "$SQL_CHUNK_SIZE"
+
+run_logged_step_live "[7/7] Esecuzione chunk SQL su Supabase via psql..." "[7/7] Avvio esegui_upsert_chunks_psql.sh" bash scripts/esegui_upsert_chunks_psql.sh
 
 echo "✅ Completato."
 echo "Log terminale salvato in: $TERMINAL_LOG_FILE"

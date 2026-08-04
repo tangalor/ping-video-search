@@ -2,15 +2,74 @@
 # Le righe vuote e quelle che iniziano con # vengono ignorate.
 
 
-1500|https://www.youtube.com/@MALONGFanmadeChannel
+10|https://www.youtube.com/@pingpongstyles
+12|https://www.youtube.com/@Fitetofficial
+60|https://www.youtube.com/@wttglobal
+30|https://www.youtube.com/@ettutvofficial
+2|https://www.youtube.com/@Learn_TableTennis
+30|https://www.youtube.com/@MilanoSportTT
+10|https://www.youtube.com/@tt-topspinmessina7289
+20|https://www.youtube.com/@tennistavolosassari3889
+10|https://www.youtube.com/@tennistavolovigevano
+20|https://www.youtube.com/@ttnulvi
+15|https://www.youtube.com/@muraveratennistavolo8062
+15|https://www.youtube.com/@ASDNewTTPieveEmanuele
+10|https://www.youtube.com/@videotttorino8111
+10|https://www.youtube.com/@tennistavolocastelgoffredo3697
+3|https://www.youtube.com/@YouPongOfficial
+2|https://www.youtube.com/@tabletennis69
+3|https://www.youtube.com/@GiacomoCerea
+2|https://www.youtube.com/@FilippoCantellaTT
+2|https://www.youtube.com/@mitsutabletennis
+2|https://www.youtube.com/@Top8TT
+2|https://www.youtube.com/@TableSkills
+2|https://www.youtube.com/@LucaLaNotteTTplayer
+2|https://www.youtube.com/@Simoneleotta0
+3|https://www.youtube.com/@TableTennisDaily
+3|https://www.youtube.com/@tabletennisindependent3737
+10|https://www.youtube.com/@TTtrix
+3|https://www.youtube.com/@BeyondThePodiumOfficial
+1|https://www.youtube.com/@giacomoizzo2007
+2|https://www.youtube.com/@ZeroNet-TTCARTURA
+2|https://www.youtube.com/@Dr.PsyPong
+3|https://www.youtube.com/@ITTFWorld
+3|https://www.youtube.com/@TableTennisEngland
+20|https://www.youtube.com/@AndreasLevenko
+40|https://www.youtube.com/@tabletennisdailyplus
+30|https://www.youtube.com/@TableTennisDailyCast
+20|https://www.youtube.com/@PongFoxTabletennis
+15|https://www.youtube.com/@World.Table.Tennis
+15|https://www.youtube.com/@SpinClips
+2|https://www.youtube.com/@ttlondon2012
+15|https://www.youtube.com/@MagnusEffectTT
+20|https://www.youtube.com/@DiegoTTTube
+15|https://www.youtube.com/@ttjapan3023
+10|https://www.youtube.com/@perdagermo734
+10|https://www.youtube.com/@GecaPhoenix 
+10|https://www.youtube.com/@GecaPhoenix2
+40|https://www.youtube.com/@ttstars
+40|https://www.youtube.com/@TTSTARSERIES 
+10|https://www.youtube.com/@TTCrazyShot
+15|https://www.youtube.com/@OlavKTTT
+10|https://www.youtube.com/@pingponggoris
+1000|https://www.youtube.com/@VideoTTMondovi
+5|https://www.youtube.com/@pierluigiloi9961
+10|https://www.youtube.com/@TtblDe
 3|https://www.youtube.com/@AugustinePingPong
 100|https://www.youtube.com/@samuel_piatanesi
 10|https://www.youtube.com/@ChulongNieTableTennis
 3|https://www.youtube.com/@conhuang0
-650|https://www.youtube.com/@familiasunami
-200|https://www.youtube.com/@pingpongweekend
-3000|https://www.youtube.com/@pong4life
-1550|https://www.youtube.com/@orangecountytabletennis
-200|https://www.youtube.com/@kl2show
-3500|https://www.youtube.com/@majorleaguetabletennis
-20010|https://www.youtube.com/@tteliteseries7892
+
+
+
+
+
+# 1500|https://www.youtube.com/@MALONGFanmadeChannel
+# 3|https://www.youtube.com/@AugustinePingPong
+# 650|https://www.youtube.com/@familiasunami
+# 200|https://www.youtube.com/@pingpongweekend
+# 3000|https://www.youtube.com/@pong4life
+# 1550|https://www.youtube.com/@orangecountytabletennis
+# 200|https://www.youtube.com/@kl2show
+# 3500|https://www.youtube.com/@majorleaguetabletennis
+# 20010|https://www.youtube.com/@tteliteseries7892
