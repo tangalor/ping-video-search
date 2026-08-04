@@ -19,9 +19,8 @@ on:
         type: boolean
         default: false
   schedule:
-    # 22:12 UTC ~= 00:12 in Italia durante ora legale.
-    # Aggiorna questo cron in base all'orario desiderato.
-    - cron: "12 22 * * *"
+    # 12:00 UTC ogni giorno.
+    - cron: "0 12 * * *"
 
 jobs:
   aggiorna-dati:
