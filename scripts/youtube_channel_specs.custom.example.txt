@@ -59,17 +59,16 @@
 # 100|https://www.youtube.com/@samuel_piatanesi
 # 10|https://www.youtube.com/@ChulongNieTableTennis
 # 3|https://www.youtube.com/@conhuang0
+# 3|https://www.youtube.com/@AugustinePingPong
+# 3|https://www.youtube.com/@pingpongweekend
+# 3|https://www.youtube.com/@kl2show
 
 
 
+1500|https://www.youtube.com/@MALONGFanmadeChannel
+650|https://www.youtube.com/@familiasunami
 
-
-# 1500|https://www.youtube.com/@MALONGFanmadeChannel
-3|https://www.youtube.com/@AugustinePingPong
-# 650|https://www.youtube.com/@familiasunami
-200|https://www.youtube.com/@pingpongweekend
 # 3000|https://www.youtube.com/@pong4life
 # 1550|https://www.youtube.com/@orangecountytabletennis
-200|https://www.youtube.com/@kl2show
 # 3500|https://www.youtube.com/@majorleaguetabletennis
 # 20010|https://www.youtube.com/@tteliteseries7892
