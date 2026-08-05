@@ -65,6 +65,9 @@ const LATEST_PAGE_SIZE = DEFAULT_PAGE_SIZE;
 const LATEST_TOTAL_LIMIT = 30;
 const BASE_PATH = getBasePath();
 const FOOTER_ATHLETE_MIN_VISIBLE_VIDEOS = 10;
+const DETAIL_TAGS_COLLAPSE_MAX_ITEMS = 8;
+const DETAIL_TAGS_COLLAPSE_MAX_CHARS = 220;
+const DETAIL_DESCRIPTION_COLLAPSE_MAX_CHARS = 360;
 
 let pagingState = {
   mode: "latest",
@@ -1365,10 +1368,11 @@ function openDetailPage(row, pushHistory) {
   const titleText = row.title_it || row.title_en || row.id || "Video";
   const channelText = row.channel || "Canale n/d";
   const descriptionText = row.description_it || row.description_en || "Descrizione non disponibile.";
+  const isItalianContent = inferItalianContent(row);
 
   detailTitle.textContent = titleText;
   detailChannel.textContent = `${channelText} • ${formatUploadDate(row.upload_date)}`;
-  detailDescription.textContent = descriptionText;
+  renderDetailDescriptionValue(detailDescription, descriptionText, isItalianContent);
 
   const embedUrl = buildEmbedUrl(row.id);
   if (embedUrl) {
@@ -2062,10 +2066,105 @@ function renderDetailData(row) {
     const dt = document.createElement("dt");
     const dd = document.createElement("dd");
     dt.textContent = getDetailFieldLabel(key, isItalianContent);
-    dd.textContent = formatDetailValueByKey(key, value, isItalianContent);
+    if (key === "tags") {
+      renderDetailTagsValue(dd, value, isItalianContent);
+    } else {
+      dd.textContent = formatDetailValueByKey(key, value, isItalianContent);
+    }
     detailData.appendChild(dt);
     detailData.appendChild(dd);
   }
+}
+
+function renderDetailDescriptionValue(container, text, isItalianContent) {
+  const content = String(text || "").trim() || "Descrizione non disponibile.";
+  const shouldCollapse = isCompactMobileDetailLayout() && content.length > DETAIL_DESCRIPTION_COLLAPSE_MAX_CHARS;
+
+  container.innerHTML = "";
+
+  if (!shouldCollapse) {
+    container.textContent = content;
+    return;
+  }
+
+  const previewCut = content.slice(0, DETAIL_DESCRIPTION_COLLAPSE_MAX_CHARS);
+  const previewText = previewCut.replace(/\s+\S*$/, "").trim() || previewCut.trim();
+
+  const textSpan = document.createElement("span");
+  textSpan.className = "detail-description-text";
+
+  const toggleBtn = document.createElement("button");
+  toggleBtn.type = "button";
+  toggleBtn.className = "detail-more-btn";
+
+  const showMoreLabel = isItalianContent ? "Mostra altro" : "Show more";
+  const showLessLabel = isItalianContent ? "Mostra meno" : "Show less";
+  let expanded = false;
+
+  const render = () => {
+    textSpan.textContent = expanded ? content : `${previewText}...`;
+    toggleBtn.textContent = expanded ? showLessLabel : showMoreLabel;
+    toggleBtn.setAttribute("aria-expanded", String(expanded));
+  };
+
+  toggleBtn.addEventListener("click", () => {
+    expanded = !expanded;
+    render();
+  });
+
+  render();
+  container.appendChild(textSpan);
+  container.appendChild(toggleBtn);
+}
+
+function isCompactMobileDetailLayout() {
+  return Boolean(window.matchMedia && window.matchMedia("(max-width: 680px)").matches);
+}
+
+function renderDetailTagsValue(container, value, isItalianContent) {
+  const tags = normalizeTagsValue(value);
+  if (!tags.length) {
+    container.textContent = "n/d";
+    return;
+  }
+
+  const fullText = tags.join(", ");
+  const shouldCollapse = isCompactMobileDetailLayout() && (
+    tags.length > DETAIL_TAGS_COLLAPSE_MAX_ITEMS ||
+    fullText.length > DETAIL_TAGS_COLLAPSE_MAX_CHARS
+  );
+
+  if (!shouldCollapse) {
+    container.textContent = fullText;
+    return;
+  }
+
+  const previewText = tags.slice(0, DETAIL_TAGS_COLLAPSE_MAX_ITEMS).join(", ");
+  const textSpan = document.createElement("span");
+  textSpan.className = "detail-tags-text";
+
+  const toggleBtn = document.createElement("button");
+  toggleBtn.type = "button";
+  toggleBtn.className = "detail-more-btn";
+
+  const showMoreLabel = isItalianContent ? "Mostra altro" : "Show more";
+  const showLessLabel = isItalianContent ? "Mostra meno" : "Show less";
+  let expanded = false;
+
+  const render = () => {
+    textSpan.textContent = expanded ? fullText : `${previewText}, ...`;
+    toggleBtn.textContent = expanded ? showLessLabel : showMoreLabel;
+    toggleBtn.setAttribute("aria-expanded", String(expanded));
+  };
+
+  toggleBtn.addEventListener("click", () => {
+    expanded = !expanded;
+    render();
+  });
+
+  render();
+  container.appendChild(textSpan);
+  container.appendChild(toggleBtn);
 }
 
 function inferItalianContent(row) {
