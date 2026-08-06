@@ -235,10 +235,14 @@ while IFS= read -r url; do
   if [[ "$EMIT_SPECS_ONLY" != "1" ]]; then
     printf '[%s/%s] Risolvo channel_id per @%s...\n' "$channel_index" "$total_channels" "$channel_label"
   fi
-  channel_id_output="$(resolve_channel_id "$url")"
+  channel_id_output="$(resolve_channel_id "$url")" || true
   if [[ "$channel_id_output" == ERROR$'\t'* ]]; then
-    echo "ATTENZIONE: impossibile risolvere channel_id per ${url}" >&2
-    printf '  %s\n' "${channel_id_output#ERROR$'\t'}" >&2
+    echo "ATTENZIONE: non sono riuscito a trovare il channel_id di @${channel_label} (${url})" >&2
+    printf '  dettaglio: %s\n' "${channel_id_output#ERROR$'\t'}" >&2
+    continue
+  fi
+  if [[ -z "$channel_id_output" ]]; then
+    echo "ATTENZIONE: non sono riuscito a trovare il channel_id di @${channel_label} (${url}) — nessun output dal resolver" >&2
     continue
   fi
 
@@ -248,7 +252,7 @@ while IFS= read -r url; do
     printf '[%s/%s] Leggo feed RSS e conto i video nel range...\n' "$channel_index" "$total_channels"
   fi
 
-  feed_count_output="$(count_recent_items_from_feed "$channel_id")"
+  feed_count_output="$(count_recent_items_from_feed "$channel_id")" || true
   if [[ "$feed_count_output" == ERROR$'\t'* ]]; then
     echo "ATTENZIONE: impossibile leggere il feed RSS per ${url}" >&2
     printf '  %s\n' "${feed_count_output#ERROR$'\t'}" >&2
