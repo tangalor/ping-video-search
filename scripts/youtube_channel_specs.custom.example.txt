@@ -74,3 +74,5 @@
 # Formato: numero_video_da_scansionare|url_canale
 # Le righe vuote e quelle che iniziano con # vengono ignorate.
 
+# @orangecountytabletennis => pochi video ma molti shorts
+
