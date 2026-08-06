@@ -59,11 +59,13 @@
 # 3|https://www.youtube.com/@kl2show
 # 15|https://www.youtube.com/@MALONGFanmadeChannel
 # 10|https://www.youtube.com/@familiasunami
+# 5|https://www.youtube.com/@orangecountytabletennis
 
 # 3000|https://www.youtube.com/@pong4life
-1550|https://www.youtube.com/@orangecountytabletennis
+
 # 3500|https://www.youtube.com/@majorleaguetabletennis
-30|https://www.youtube.com/@tteliteseries7892       # => fa tantissime live ma pochi video
+30|https://www.youtube.com/@tteliteseries7892    
+100|https://www.youtube.com/@MartinaGolosmanovaTableTennis
 
 
 
