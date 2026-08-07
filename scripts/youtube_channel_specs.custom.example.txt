@@ -60,12 +60,13 @@
 # 15|https://www.youtube.com/@MALONGFanmadeChannel
 # 10|https://www.youtube.com/@familiasunami
 # 5|https://www.youtube.com/@orangecountytabletennis
+# 3|https://www.youtube.com/@tteliteseries7892    
+# 5|https://www.youtube.com/@MartinaGolosmanovaTableTennis
+
 
 # 3000|https://www.youtube.com/@pong4life
-
 # 3500|https://www.youtube.com/@majorleaguetabletennis
-30|https://www.youtube.com/@tteliteseries7892    
-100|https://www.youtube.com/@MartinaGolosmanovaTableTennis
+
 
 
 
