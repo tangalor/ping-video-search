@@ -555,7 +555,10 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
       exit 1
     fi
 
-    mapfile -t YT_CHANNEL_SPECS < <(grep -Ev '^[[:space:]]*($|#)' "$YT_CHANNEL_SPECS_FILE")
+    YT_CHANNEL_SPECS=()
+    while IFS= read -r _line; do
+      YT_CHANNEL_SPECS+=("$_line")
+    done < <(grep -Ev '^[[:space:]]*($|#)' "$YT_CHANNEL_SPECS_FILE")
   else
     echo " - aggiorno YT_CHANNEL_SPECS dal report RSS (${YT_CHANNEL_REPORT_DAYS} giorni, solo colonna video)"
     log_msg "[3/7] Generazione YT_CHANNEL_SPECS dal report RSS"
@@ -571,7 +574,10 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
       exit 1
     fi
 
-    mapfile -t YT_CHANNEL_SPECS < "$report_specs_file"
+    YT_CHANNEL_SPECS=()
+    while IFS= read -r _line; do
+      YT_CHANNEL_SPECS+=("$_line")
+    done < "$report_specs_file"
     rm -f "$report_specs_file"
   fi
 
