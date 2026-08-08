@@ -63,9 +63,7 @@
 # 3|https://www.youtube.com/@tteliteseries7892    
 # 5|https://www.youtube.com/@MartinaGolosmanovaTableTennis
 # 20|https://www.youtube.com/@pong4life
-
-
-3500|https://www.youtube.com/@majorleaguetabletennis
+# 20|https://www.youtube.com/@majorleaguetabletennis
 
 
 
