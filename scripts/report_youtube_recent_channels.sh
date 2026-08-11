@@ -98,53 +98,78 @@ print(datetime.strptime(sys.argv[1], "%Y%m%d").strftime("%d/%m/%Y"))
 PY
 )"
 
+# resolve_channel_id: robust resolver without using YouTube API.
+# Accepts:
+#  - direct channel id (UC...)
+#  - URL containing /channel/UC...
+#  - full channel URL or handle (https://www.youtube.com/@handle, /c/custom, /user/)
+# It scrapes the channel page (prefer /videos tab) and extracts channelId/browseId/externalId.
 resolve_channel_id() {
   local url="$1"
   python3 - "$url" "$USER_AGENT" <<'PY'
-import re
-import sys
-import urllib.request
+import re, sys, urllib.request, urllib.error
 
-url = sys.argv[1].rstrip('/') + '/videos'
+in_val = sys.argv[1].strip()
 user_agent = sys.argv[2]
-request = urllib.request.Request(
-    url,
-    headers={
-        'User-Agent': user_agent,
-        'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
-    },
-)
 
-try:
-    with urllib.request.urlopen(request, timeout=20) as response:
-        html = response.read().decode('utf-8', errors='replace')
-except Exception as exc:
-    print(f'ERROR\t{exc}')
-    sys.exit(2)
+# If already a channel id
+m = re.match(r'^(UC[0-9A-Za-z_-]{20,})$', in_val)
+if m:
+    print(m.group(1))
+    sys.exit(0)
 
-patterns = [
-    r'"channelId":"(UC[^"]+)"',
-    r'"externalId":"(UC[^"]+)"',
-    r'"browseId":"(UC[^"]+)"',
-]
+candidates = []
+# If a full URL, try a few forms
+if in_val.startswith('http://') or in_val.startswith('https://'):
+    base = in_val.rstrip('/')
+    candidates = [base, base + '/videos', base + '/about']
+else:
+    # This might be a short handle like @name or a bare handle
+    if in_val.startswith('@'):
+        candidates = [f'https://www.youtube.com/{in_val}', f'https://www.youtube.com/{in_val}/videos']
+    else:
+        # treat as path suffix
+        candidates = [f'https://www.youtube.com/{in_val}', f'https://www.youtube.com/{in_val}/videos']
 
-for pattern in patterns:
-    match = re.search(pattern, html)
-    if match:
-        print(match.group(1))
-        sys.exit(0)
+patterns = [r'"channelId":"(UC[0-9A-Za-z_-]+)"', r'"externalId":"(UC[0-9A-Za-z_-]+)"', r'"browseId":"(UC[0-9A-Za-z_-]+)"']
+
+for candidate in candidates:
+    try:
+        req = urllib.request.Request(candidate, headers={
+            'User-Agent': user_agent,
+            'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
+        })
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            html = resp.read().decode('utf-8', errors='replace')
+    except urllib.error.HTTPError as exc:
+        # try next candidate
+        continue
+    except Exception:
+        continue
+
+    for p in patterns:
+        mm = re.search(p, html)
+        if mm:
+            print(mm.group(1))
+            sys.exit(0)
+
+# As a last resort, if the input contains '/channel/UC...' anywhere, extract
+m = re.search(r'(UC[0-9A-Za-z_-]{20,})', in_val)
+if m:
+    print(m.group(1))
+    sys.exit(0)
 
 print('ERROR\tchannelId not found')
 sys.exit(1)
 PY
 }
 
+# count_recent_items_from_feed: uses the official YouTube feed URL with channel_id
+# and reports errors including the feed URL so it's easy to debug 404/403.
 count_recent_items_from_feed() {
   local channel_id="$1"
   python3 - "$channel_id" "$RANGE_START_DATE" "$RANGE_END_DATE" "$USER_AGENT" <<'PY'
-import sys
-import urllib.request
-import xml.etree.ElementTree as ET
+import sys, urllib.request, urllib.error, xml.etree.ElementTree as ET
 from datetime import datetime
 
 channel_id = sys.argv[1]
@@ -153,22 +178,27 @@ end_date = datetime.strptime(sys.argv[3], '%Y%m%d').date()
 user_agent = sys.argv[4]
 feed_url = f'https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}'
 
-request = urllib.request.Request(
-    feed_url,
-    headers={
-        'User-Agent': user_agent,
-        'Accept': 'application/atom+xml,application/xml;q=0.9,*/*;q=0.8',
-    },
-)
+req = urllib.request.Request(feed_url, headers={
+    'User-Agent': user_agent,
+    'Accept': 'application/atom+xml,application/xml;q=0.9,*/*;q=0.8',
+})
 
 try:
-    with urllib.request.urlopen(request, timeout=20) as response:
-        xml_data = response.read()
+    with urllib.request.urlopen(req, timeout=20) as r:
+        xml_data = r.read()
+except urllib.error.HTTPError as exc:
+    print(f'ERROR\tHTTP {exc.code} when fetching feed {feed_url}')
+    sys.exit(2)
 except Exception as exc:
-    print(f'ERROR\t{exc}')
+    print(f'ERROR\t{exc} when fetching feed {feed_url}')
     sys.exit(2)
 
-root = ET.fromstring(xml_data)
+try:
+    root = ET.fromstring(xml_data)
+except Exception as exc:
+    print(f'ERROR\tXML parse error: {exc} for feed {feed_url}')
+    sys.exit(2)
+
 namespace = {'atom': 'http://www.w3.org/2005/Atom'}
 video_count = 0
 short_count = 0
@@ -181,20 +211,17 @@ for entry in root.findall('atom:entry', namespace):
         published = published[:-1] + '+00:00'
     try:
         published_dt = datetime.fromisoformat(published)
-    except ValueError:
+    except Exception:
         continue
-
     published_date = published_dt.astimezone().date()
     if not (start_date <= published_date <= end_date):
         continue
-
     link = ''
     for link_node in entry.findall('atom:link', namespace):
         href = link_node.attrib.get('href', '').strip()
         if href:
             link = href
             break
-
     if '/shorts/' in link:
         short_count += 1
     else:
