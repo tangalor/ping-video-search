@@ -31,6 +31,10 @@ PROGRESS_FD=1
 PROGRESS_IS_TTY=0
 mkdir -p "$BACKUP_ROOT" "dati_grezzi" "letture_pulite" "$LOG_DIR"
 
+# Optional: YouTube Data API key — not required for feed download, but available
+# if present can be used by resolvers; we still prefer scraping the /videos page.
+YT_API_KEY="${YT_API_KEY:-}"
+
 if [[ -z "$DISABLE_PROGRESS_BARS" ]]; then
   if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
     DISABLE_PROGRESS_BARS=1
@@ -59,6 +63,9 @@ Opzioni:
   --use-custom-channel-specs
                      Usa automaticamente scripts/youtube_channel_specs.custom.example.txt.
   -h, --help         Mostra questo aiuto.
+
+Ambiente:
+  YT_API_KEY         (opzionale) YouTube Data API key — non richiesta per scaricare il feed RSS
 EOF
 }
 
@@ -241,8 +248,8 @@ render_yt_panel() {
     printf '\033[%sA' "$YT_PANEL_LINES"
   fi
 
-  line1="${COLOR_CYAN}Canali${COLOR_RESET} [${COLOR_CYAN}${channel_bar}${COLOR_RESET}] $(printf '%3d' "$channel_pct")% (${channel_index}/${total_channels}) ${COLOR_MAGENTA}ETA totale: $(format_duration "$total_eta")${COLOR_RESET}"
-  line2="${COLOR_GREEN}Video ${COLOR_RESET} [${COLOR_GREEN}${video_bar}${COLOR_RESET}] $(printf '%3d' "$video_pct")% (${video_index}/${video_total}) ${COLOR_MAGENTA}ETA canale: $(format_duration "$channel_eta")${COLOR_RESET}"
+  line1="${COLOR_CYAN}Canali${COLOR_RESET} [${COLOR_CYAN}${channel_bar}${COLOR_RESET}] $(printf '%3d' "$channel_pct")% (${channel_index}/${total_channels}) ${COLOR_MAGENTA}ETA totale: $(format_duration ${total_eta:-0})${COLOR_RESET}"
+  line2="${COLOR_GREEN}Video ${COLOR_RESET} [${COLOR_GREEN}${video_bar}${COLOR_RESET}] $(printf '%3d' "$video_pct")% (${video_index}/${video_total}) ${COLOR_MAGENTA}ETA canale: $(format_duration ${channel_eta:-0})${COLOR_RESET}"
   line3="${COLOR_YELLOW}Canale corrente:${COLOR_RESET} $(trim_line "$video_info")"
   line4="${COLOR_DIM}Log:${COLOR_RESET} $(trim_line "$last_log")"
 
@@ -561,7 +568,7 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
     log_msg "[3/7] Generazione YT_CHANNEL_SPECS dal report RSS"
 
     report_specs_file="$(mktemp)"
-    if ! bash scripts/report_youtube_recent_channels.sh \
+    if ! YT_API_KEY="$YT_API_KEY" bash scripts/report_youtube_recent_channels.sh \
       --days "$YT_CHANNEL_REPORT_DAYS" \
       --channels-file "$YT_CHANNELS_FILE" \
       --emit-specs > "$report_specs_file"; then
@@ -622,7 +629,7 @@ run_logged_step "[5/7] Generazione script SQL upsert da CSV best effort..." "[5/
 
 print_generation_summary
 
-run_logged_step "[6/7] Validazione caratteri SQL + creazione chunk per Supabase..." "[6/7] Avvio split_upsert_sql_chunks.py" python3 scripts/split_upsert_sql_chunks.py --input "$SQL_SOURCE_FILE" --out-dir "$SQL_CHUNK_DIR" --chunk-size "$SQL_CHUNK_SIZE"
+run_logged_step "[6/7] Validazione caratteri SQL + creazione chunk per Supabase..." "[6/7] Avvio split_upsert_sql_chunks.py" python3 scripts/split_upsert_sql_chunks.py --input "$SQL_SOURCE_FILE" [...]
 
 run_logged_step_live "[7/7] Esecuzione chunk SQL su Supabase via psql..." "[7/7] Avvio esegui_upsert_chunks_psql.sh" bash scripts/esegui_upsert_chunks_psql.sh
 
