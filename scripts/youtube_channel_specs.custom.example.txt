@@ -41,10 +41,10 @@
 # 20|https://www.youtube.com/@DiegoTTTube
 # 15|https://www.youtube.com/@ttjapan3023
 # 10|https://www.youtube.com/@perdagermo734
-# 10|https://www.youtube.com/@GecaPhoenix 
+# 10|https://www.youtube.com/@GecaPhoenix
 # 10|https://www.youtube.com/@GecaPhoenix2
 # 40|https://www.youtube.com/@ttstars
-# 40|https://www.youtube.com/@TTSTARSERIES 
+# 40|https://www.youtube.com/@TTSTARSERIES
 # 10|https://www.youtube.com/@TTCrazyShot
 # 15|https://www.youtube.com/@OlavKTTT
 # 10|https://www.youtube.com/@pingponggoris
