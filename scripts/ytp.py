@@ -216,6 +216,13 @@ def _is_noise_text(testo):
     ratio = letters / max(1, len(normalized))
     return ratio < 0.18
 
+
+def _is_error_text(testo):
+    # Identify error messages from API/translator failures
+    error_patterns = ["Error 500", "Server Error", "error", "failed", "exception"]
+    testo_lower = (testo or "").lower()
+    return any(pattern.lower() in testo_lower for pattern in error_patterns)
+
 def gestisci_lingue(testo):
     """Rileva la lingua e restituisce una tupla con la versione (italiano, inglese)"""
     global translation_error_count
@@ -242,6 +249,13 @@ def gestisci_lingue(testo):
             # Se è inglese (o qualsiasi altra lingua come cinese o tedesco), traduciamo in italiano
             inglese = testo if lingua_rilevata == "en" else _safe_translate(testo, "auto", "en")
             italiano = _safe_translate(testo, "auto", "it")
+        
+        # Check if results contain error messages — use original text as fallback
+        if _is_error_text(italiano):
+            italiano = testo
+        if _is_error_text(inglese):
+            inglese = testo
+            
     except Exception as e:
         translation_error_count += 1
         if translation_error_log_count < TRANSLATION_ERROR_LOG_LIMIT:
