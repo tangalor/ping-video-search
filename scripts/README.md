@@ -54,9 +54,6 @@ Questa cartella contiene tutti gli script shell e Python del progetto.
   - Esegue i file in `output_upsert_chunks/output_upsert_from_csv_part_*.sql`.
   - Usa `SUPABASE_DB_URL` da `.env`.
 
-- `schedule_job.sh`
-  - Configura wake-up Mac + cron per avvio giornaliero della pipeline.
-
 ## Script Python
 
 - `ytp.py`

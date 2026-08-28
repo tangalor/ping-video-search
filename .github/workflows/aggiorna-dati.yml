@@ -19,8 +19,8 @@ on:
         type: boolean
         default: false
   schedule:
-    # 02:22 UTC ogni giorno.
-    - cron: "22 2 * * *"
+    # 03:27 UTC ogni giorno.
+    - cron: "27 3 * * *"
 
 jobs:
   aggiorna-dati:
