@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=17" />
+  <link rel="stylesheet" href="styles.css?v=19" />
 </head>
 <body>
   <div class="bg-shape bg-shape-a"></div>
@@ -32,7 +32,12 @@
 
   <main class="page">
     <header class="hero">
-      <h1><a href="./" class="home-brand-link">Ping Video Search</a></h1>
+      <h1>
+        <a href="./" class="home-brand-link brand-lockup" aria-label="Vai alla home PingTV">
+          <img src="img/pingtv_transparrent.png" alt="Logo PingTV" class="brand-logo" />
+          <span class="brand-text">PingTV</span>
+        </a>
+      </h1>
       <p>Trova partite, atleti e momenti salienti in pochi secondi.</p>
     </header>
 
@@ -224,7 +229,12 @@
       <section id="detail-view" class="detail-section hidden" aria-live="polite">
         <div class="detail-head">
           <button id="back-btn" class="btn-secondary" type="button">← Torna alla home</button>
-          <h2 class="detail-site-title"><a href="./" class="home-brand-link">Ping Video Search</a></h2>
+          <h2 class="detail-site-title">
+            <a href="./" class="home-brand-link brand-lockup brand-lockup-compact" aria-label="Vai alla home PingTV">
+              <img src="img/pingtv_transparrent.png" alt="Logo PingTV" class="brand-logo" />
+              <span class="brand-text">PingTV</span>
+            </a>
+          </h2>
         </div>
 
       <article class="detail-card">
@@ -268,6 +278,6 @@
   </template>
 
   <script src="config.local.js?v=5"></script>
-  <script src="script.js?v=31"></script>
+  <script src="script.js?v=32"></script>
 </body>
 </html>

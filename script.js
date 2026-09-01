@@ -93,6 +93,15 @@ let channelVideoCounts = new Map();
 let athleteVideoCounts = new Map();
 let tagVideoCounts = new Map();
 
+const homeCountLoadingElements = [
+  indexedVideosInlineEl,
+  channelTotalCount,
+  footerChannelTotalCount,
+  athleteTotalCount,
+  footerAthleteTotalCount,
+  tagTotalCount
+].filter(Boolean);
+
 const filterNoResultsState = {
   channel: false,
   athlete: false,
@@ -102,6 +111,8 @@ const filterNoResultsState = {
 init();
 
 async function init() {
+  setHomeCountersLoading(true);
+  setFilterOptionsLoading(true);
   setupDateRangeInputs();
   bindEvents();
   await Promise.all([
@@ -147,9 +158,63 @@ async function loadIndexedVideoCount() {
     }
   } catch {
     indexedVideoCount = null;
+  } finally {
+    setHomeCountersLoading(false);
   }
 
   updateReleaseFooter();
+}
+
+function setHomeCountersLoading(isLoading) {
+  for (const el of homeCountLoadingElements) {
+    el.classList.toggle("is-inline-loading", Boolean(isLoading));
+    el.setAttribute("aria-busy", isLoading ? "true" : "false");
+  }
+}
+
+function setFilterOptionsLoading(isLoading) {
+  const targets = [
+    channelTotalCount,
+    footerChannelTotalCount,
+    athleteTotalCount,
+    footerAthleteTotalCount,
+    tagTotalCount
+  ].filter(Boolean);
+
+  for (const el of targets) {
+    el.classList.toggle("is-inline-loading", Boolean(isLoading));
+    el.setAttribute("aria-busy", isLoading ? "true" : "false");
+  }
+
+  toggleFooterLoader(footerChannelLinksEl, isLoading, "Caricamento canali");
+  toggleFooterLoader(footerAthleteLinksEl, isLoading, "Caricamento atleti");
+}
+
+function toggleFooterLoader(container, isLoading, label) {
+  if (!container) {
+    return;
+  }
+
+  container.classList.toggle("is-loading", Boolean(isLoading));
+
+  if (!isLoading) {
+    const existing = container.querySelector(".footer-filter-loader");
+    if (existing) {
+      existing.remove();
+    }
+    return;
+  }
+
+  if (container.querySelector(".footer-filter-loader")) {
+    return;
+  }
+
+  container.innerHTML = "";
+  const loader = document.createElement("span");
+  loader.className = "footer-filter-loader";
+  loader.setAttribute("role", "status");
+  loader.setAttribute("aria-label", label);
+  container.appendChild(loader);
 }
 
 function updateReleaseFooter() {
@@ -420,6 +485,8 @@ async function ensureFilterOptionsLoaded() {
 }
 
 async function loadFilterOptions() {
+  setFilterOptionsLoading(true);
+
   try {
     const query = new URLSearchParams();
     query.set("select", "channel,atleti,tags");
@@ -491,6 +558,8 @@ async function loadFilterOptions() {
     renderChannelOptions([]);
     renderAthleteOptions([]);
     renderTagOptions([]);
+  } finally {
+    setFilterOptionsLoading(false);
   }
 }
 
