@@ -95,6 +95,25 @@ run_yt() {
   fi
 }
 
+normalize_channel_base_url() {
+  local channel_url="$1"
+  channel_url="${channel_url%/}"
+  channel_url="${channel_url%/videos}"
+  channel_url="${channel_url%/shorts}"
+  channel_url="${channel_url%/streams}"
+  channel_url="${channel_url%/live}"
+  printf '%s' "$channel_url"
+}
+
+build_channel_targets() {
+  local base_url
+  base_url="$(normalize_channel_base_url "$1")"
+
+  printf '%s\n' "$base_url/videos"
+  printf '%s\n' "$base_url/shorts"
+  printf '%s\n' "$base_url/streams"
+}
+
 PROGRESS_BAR_WIDTH=34
 YT_PANEL_LINES=4
 YT_PANEL_RENDERED=0
@@ -610,7 +629,12 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
     IFS='|' read -r playlist_end channel_url <<< "$spec"
     channel_position=$((index + 1))
 
-    run_yt_channel_with_progress "$playlist_end" "$channel_url" "$channel_position" "${#YT_CHANNEL_SPECS[@]}"
+    while IFS= read -r channel_target; do
+      if [[ -z "$channel_target" ]]; then
+        continue
+      fi
+      run_yt_channel_with_progress "$playlist_end" "$channel_target" "$channel_position" "${#YT_CHANNEL_SPECS[@]}"
+    done < <(build_channel_targets "$channel_url")
   done
 
   if [ "$YT_PANEL_RENDERED" -eq 1 ]; then

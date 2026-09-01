@@ -260,3 +260,41 @@ if [[ "$PANEL_RENDERED" -eq 1 ]]; then
 fi
 
 print_status "OK" "Tutti i chunk SQL sono stati eseguiti con successo." "$COLOR_GREEN"
+
+print_status "INFO" "Avvio pulizia record con thumbnail vuota/null..." "$COLOR_CYAN"
+
+cleanup_sql_file="$(mktemp)"
+cleanup_output_file="$(mktemp)"
+
+cat > "$cleanup_sql_file" <<'SQL'
+\echo '--- Count thumbnail vuote PRIMA ---'
+SELECT COUNT(*) AS thmbunail_empty
+FROM public."ping-video"
+WHERE "thumbnail" IS NULL
+  OR btrim("thumbnail") = '';
+
+\echo '--- DELETE thumbnail vuote ---'
+BEGIN;
+DELETE FROM public."ping-video"
+WHERE "thumbnail" IS NULL
+  OR btrim("thumbnail") = '';
+COMMIT;
+
+\echo '--- Count thumbnail vuote DOPO ---'
+SELECT COUNT(*) AS thmbunail_empty
+FROM public."ping-video"
+WHERE "thumbnail" IS NULL
+  OR btrim("thumbnail") = '';
+SQL
+
+if run_psql_with_retries "$cleanup_sql_file" "$cleanup_output_file"; then
+  cat "$cleanup_output_file"
+  print_status "OK" "Pulizia thumbnail vuote completata." "$COLOR_GREEN"
+else
+  print_status "ERRORE" "Pulizia thumbnail vuote fallita." "$COLOR_RED"
+  cat "$cleanup_output_file" >&2
+  rm -f "$cleanup_sql_file" "$cleanup_output_file"
+  exit 1
+fi
+
+rm -f "$cleanup_sql_file" "$cleanup_output_file"

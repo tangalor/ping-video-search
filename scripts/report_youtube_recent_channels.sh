@@ -271,8 +271,11 @@ while IFS= read -r url; do
     total_recent_videos=$((total_recent_videos + recent_videos))
     total_recent_shorts=$((total_recent_shorts + recent_shorts))
     printf '%s\t%s\t%s\n' "@${channel_label}" "$recent_videos" "$recent_shorts" >> "$RESULTS_FILE"
-    if [[ "$EMIT_SPECS_ONLY" == "1" && "$recent_videos" -gt 0 ]]; then
-      playlist_depth="$recent_videos"
+    if [[ "$EMIT_SPECS_ONLY" == "1" ]]; then
+      playlist_depth=$((recent_videos + recent_shorts))
+      if [ "$playlist_depth" -le 0 ]; then
+        playlist_depth=1
+      fi
       if [ "$playlist_depth" -eq 15 ]; then
         playlist_depth=50
       fi

@@ -9,7 +9,9 @@ import urllib.parse
 import urllib.request
 
 LIST_COLUMNS = {"categories", "tags", "atleti"}
-INT_COLUMNS = {"view_count", "like_count", "duration"}
+JSON_COLUMNS = {"live_metadata"}
+INT_COLUMNS = {"view_count", "like_count", "duration", "live_concurrent_view_count"}
+BOOL_COLUMNS = {"is_short", "is_live_now", "was_live"}
 
 
 def load_dotenv_file(path):
@@ -57,6 +59,29 @@ def to_nullable_int(value):
         return None
 
 
+def to_nullable_bool(value):
+    text = to_nullable_string(value)
+    if text is None:
+        return None
+
+    normalized = text.lower()
+    if normalized in {"1", "true", "t", "yes", "y"}:
+        return True
+    if normalized in {"0", "false", "f", "no", "n"}:
+        return False
+    return None
+
+
+def to_nullable_json(value):
+    text = to_nullable_string(value)
+    if text is None:
+        return None
+    try:
+        return json.loads(text)
+    except (TypeError, json.JSONDecodeError):
+        return {"raw_text": text}
+
+
 def to_list(value):
     text = to_nullable_string(value)
     if text is None:
@@ -69,8 +94,12 @@ def normalize_row(raw_row):
     for key, value in raw_row.items():
         if key in LIST_COLUMNS:
             row[key] = to_list(value)
+        elif key in JSON_COLUMNS:
+            row[key] = to_nullable_json(value)
         elif key in INT_COLUMNS:
             row[key] = to_nullable_int(value)
+        elif key in BOOL_COLUMNS:
+            row[key] = to_nullable_bool(value)
         elif key == "upload_date":
             # Keep date as compact string yyyymmdd for compatibility with existing data.
             row[key] = to_nullable_string(value)

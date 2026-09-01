@@ -4,6 +4,7 @@ import glob
 import csv
 import sys
 import time
+import datetime
 import unicodedata
 from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
@@ -57,6 +58,173 @@ TRANSLATION_RETRY_DELAY = float(os.environ.get("TRANSLATION_RETRY_DELAY", "1.25"
 TRANSLATION_ERROR_LOG_LIMIT = int(os.environ.get("TRANSLATION_ERROR_LOG_LIMIT", "5"))
 translation_error_count = 0
 translation_error_log_count = 0
+
+LIVE_STATUS_VALUES = {"is_live", "is_upcoming", "post_live", "was_live"}
+
+
+def to_int_safe(value):
+    if value is None or value == "":
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def to_bool_safe(value):
+    if isinstance(value, bool):
+        return value
+    if value is None or value == "":
+        return False
+    if isinstance(value, (int, float)):
+        return value != 0
+
+    normalized = str(value).strip().lower()
+    return normalized in {"1", "true", "t", "yes", "y"}
+
+
+def to_iso8601_utc(value):
+    timestamp = to_int_safe(value)
+    if timestamp is None:
+        return None
+
+    return datetime.datetime.fromtimestamp(
+        timestamp,
+        tz=datetime.timezone.utc,
+    ).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def is_live_content(grezzo):
+    live_status = str(grezzo.get("live_status") or "").strip().lower()
+    return (
+        to_bool_safe(grezzo.get("is_live"))
+        or to_bool_safe(grezzo.get("was_live"))
+        or live_status in LIVE_STATUS_VALUES
+    )
+
+
+def is_short_content(grezzo):
+    playlist_markers = [
+        grezzo.get("playlist_webpage_url"),
+        grezzo.get("playlist_title"),
+        grezzo.get("playlist"),
+    ]
+    for candidate in playlist_markers:
+        if "/shorts" in str(candidate or "").lower() or "shorts" in str(candidate or "").lower():
+            return True
+
+    url_candidates = [
+        grezzo.get("webpage_url"),
+        grezzo.get("original_url"),
+        grezzo.get("url"),
+    ]
+    for candidate in url_candidates:
+        if "/shorts/" in str(candidate or ""):
+            return True
+
+    return False
+
+
+def derive_content_type(grezzo):
+    if grezzo.get("_type") != "video":
+        return None
+    if is_live_content(grezzo):
+        return "live"
+    if is_short_content(grezzo):
+        return "short"
+    return "video"
+
+
+def extract_live_metadata(grezzo):
+    if not is_live_content(grezzo):
+        return None
+
+    keep_exact = {
+        "availability",
+        "channel_is_verified",
+        "comment_count",
+        "concurrent_view_count",
+        "duration",
+        "duration_string",
+        "heatmap",
+        "id",
+        "is_live",
+        "like_count",
+        "live_status",
+        "release_date",
+        "release_timestamp",
+        "timestamp",
+        "title",
+        "upload_date",
+        "view_count",
+        "was_live",
+        "webpage_url",
+    }
+
+    metadata = {}
+    for key, value in grezzo.items():
+        if key in keep_exact or any(token in key for token in ("live", "release", "timestamp", "start", "end", "upload")):
+            metadata[key] = value
+
+    metadata["derived_live_started_at"] = to_iso8601_utc(grezzo.get("release_timestamp"))
+    metadata["derived_live_published_at"] = to_iso8601_utc(grezzo.get("timestamp"))
+    return metadata
+
+
+def build_output_record(grezzo):
+    content_type = derive_content_type(grezzo)
+    if content_type is None:
+        return None
+
+    id_video = grezzo.get("id")
+    if not id_video:
+        return None
+
+    titolo_originale = grezzo.get("title", "")
+    descrizione_originale = grezzo.get("description", "")
+
+    # Elaboriamo le lingue per titolo e descrizione
+    titolo_it, titolo_en = gestisci_lingue(titolo_originale)
+    descrizione_it, description_en = gestisci_lingue(descrizione_originale)
+
+    # Estrazione atleti
+    testo_per_atleti = f"{titolo_originale} {descrizione_originale}"
+    atleti_rilevati = estrai_atleti(testo_per_atleti)
+
+    live_metadata = extract_live_metadata(grezzo)
+    is_live_row = content_type == "live"
+
+    return {
+        "id": id_video,
+        "webpage_url": grezzo.get("webpage_url"),
+        "upload_date": grezzo.get("upload_date"),
+        "channel_id": grezzo.get("channel_id"),
+        "channel": grezzo.get("channel"),
+        "thumbnail": grezzo.get("thumbnail"),
+        "view_count": grezzo.get("view_count", 0),
+        "like_count": grezzo.get("like_count", 0),
+        "duration": grezzo.get("duration", 0),
+        "categories": grezzo.get("categories", []),
+        "tags": grezzo.get("tags", []),
+        "atleti": atleti_rilevati,
+        "content_type": content_type,
+        "is_short": content_type == "short",
+        "is_live_now": to_bool_safe(grezzo.get("is_live")) if is_live_row else False,
+        "was_live": to_bool_safe(grezzo.get("was_live")) if is_live_row else False,
+        "live_status": grezzo.get("live_status") if is_live_row else None,
+        "live_started_at": to_iso8601_utc(grezzo.get("release_timestamp")) if is_live_row else None,
+        "live_published_at": to_iso8601_utc(grezzo.get("timestamp")) if is_live_row else None,
+        "live_concurrent_view_count": to_int_safe(grezzo.get("concurrent_view_count")) if is_live_row else None,
+        "live_metadata": live_metadata if is_live_row else None,
+
+        # 🇮🇹 Campi in Italiano
+        "title_it": titolo_it,
+        "description_it": descrizione_it,
+
+        # 🇬🇧 Campi in Inglese
+        "title_en": titolo_en,
+        "description_en": description_en,
+    }
 
 
 def carica_atleti_extra(percorso_file):
@@ -237,7 +405,7 @@ def gestisci_lingue(testo):
     # 1. Rilevamento della lingua
     try:
         lingua_rilevata = detect(testo)
-    except:
+    except Exception:
         lingua_rilevata = "en" # Fallback se il testo contiene solo emoji o numeri
 
     # 2. Traduzione speculare
@@ -265,111 +433,90 @@ def gestisci_lingue(testo):
 
     return italiano, inglese
 
-# Inizio elaborazione
-file_grezzi = glob.glob(os.path.join(cartella_grezza, "*.info.json"))
-print(f"Elaborazione, traduzione e pulizia di {len(file_grezzi)} file in corso...")
-totale_file = len(file_grezzi)
+def main():
+    file_grezzi = glob.glob(os.path.join(cartella_grezza, "*.info.json"))
+    print(f"Elaborazione, traduzione e pulizia di {len(file_grezzi)} file in corso...")
+    totale_file = len(file_grezzi)
+    record_saltati = 0
 
-if totale_file:
-    render_translation_panel(0, totale_file, "-", "In attesa")
+    if totale_file:
+        render_translation_panel(0, totale_file, "-", "In attesa")
 
-for indice, percorso_file in enumerate(file_grezzi, start=1):
-    with open(percorso_file, 'r', encoding='utf-8') as f:
-        grezzo = json.load(f)
+    for indice, percorso_file in enumerate(file_grezzi, start=1):
+        with open(percorso_file, 'r', encoding='utf-8') as f:
+            grezzo = json.load(f)
 
-    id_video = grezzo.get("id")
-    titolo_originale = grezzo.get("title", "")
-    descrizione_originale = grezzo.get("description", "")
+        id_video = grezzo.get("id") or os.path.basename(percorso_file)
+        render_translation_panel(indice - 1, totale_file, id_video, "Analisi metadati")
 
-    render_translation_panel(indice - 1, totale_file, id_video, "Traduzione titolo e descrizione")
+        json_su_misura = build_output_record(grezzo)
+        if json_su_misura is None:
+            record_saltati += 1
+            render_translation_panel(indice, totale_file, id_video, "Saltato: record playlist/canale")
+            continue
 
-    # Elaboriamo le lingue per titolo e descrizione
-    titolo_it, titolo_en = gestisci_lingue(titolo_originale)
-    descrizione_it, description_en = gestisci_lingue(descrizione_originale)
+        nome_file_uscita = os.path.join(cartella_pulita, f"{json_su_misura['id']}.json")
+        with open(nome_file_uscita, 'w', encoding='utf-8') as f_out:
+            json.dump(json_su_misura, f_out, ensure_ascii=False, indent=4)
 
-    # Estrazione atleti
-    testo_per_atleti = f"{titolo_originale} {descrizione_originale}"
-    atleti_rilevati = estrai_atleti(testo_per_atleti)
+        render_translation_panel(indice, totale_file, json_su_misura["id"], "Completato")
 
-    # Struttura finale del JSON sdoppiata in due lingue
-    json_su_misura = {
-        "id": id_video,
-        "webpage_url": grezzo.get("webpage_url"),
-        "upload_date": grezzo.get("upload_date"),
-        "channel_id": grezzo.get("channel_id"),
-        "channel": grezzo.get("channel"),
-        "thumbnail": grezzo.get("thumbnail"),
-        "view_count": grezzo.get("view_count", 0),
-        "like_count": grezzo.get("like_count", 0),
-        "duration": grezzo.get("duration", 0),
-        "categories": grezzo.get("categories", []),
-        "tags": grezzo.get("tags", []),
-        "atleti": atleti_rilevati,
+    if totale_file and sys.stdout.isatty():
+        stream = get_progress_stream()
+        if stream is not None:
+            stream.write("\n")
+            stream.flush()
 
-        # 🇮🇹 Campi in Italiano
-        "title_it": titolo_it,
-        "description_it": descrizione_it,
+    if translation_error_count > 0:
+        suppressed = max(0, translation_error_count - translation_error_log_count)
+        print(
+            f"Traduzioni con fallback: {translation_error_count}"
+            f" (messaggi mostrati: {translation_error_log_count}, nascosti: {suppressed})"
+        )
 
-        # 🇬🇧 Campi in Inglese
-        "title_en": titolo_en,
-        "description_en": description_en
-    }
+    if record_saltati:
+        print(f"Record non-video saltati: {record_saltati}")
 
-    nome_file_uscita = os.path.join(cartella_pulita, f"{id_video}.json")
-    with open(nome_file_uscita, 'w', encoding='utf-8') as f_out:
-        json.dump(json_su_misura, f_out, ensure_ascii=False, indent=4)
+    print(f"✅ Fatto! File multilingua salvati in '{cartella_pulita}'.")
 
-    render_translation_panel(indice, totale_file, id_video, "Completato")
+    # Unione finale di tutti i JSON puliti in un CSV con separatore ';'
+    percorso_csv_uscita = "output.csv"
+    file_puliti = sorted(glob.glob(os.path.join(cartella_pulita, "*.json")))
 
-if totale_file and sys.stdout.isatty():
-    stream = get_progress_stream()
-    if stream is not None:
-        stream.write("\n")
-        stream.flush()
+    righe_csv = []
+    for percorso_file in file_puliti:
+        with open(percorso_file, 'r', encoding='utf-8') as f:
+            record = json.load(f)
+            righe_csv.append(record)
 
-if translation_error_count > 0:
-    suppressed = max(0, translation_error_count - translation_error_log_count)
-    print(
-        f"Traduzioni con fallback: {translation_error_count}"
-        f" (messaggi mostrati: {translation_error_log_count}, nascosti: {suppressed})"
-    )
-
-print(f"✅ Fatto! File multilingua salvati in '{cartella_pulita}'.")
-
-# Unione finale di tutti i JSON puliti in un CSV con separatore ';'
-percorso_csv_uscita = "output.csv"
-file_puliti = sorted(glob.glob(os.path.join(cartella_pulita, "*.json")))
-
-righe_csv = []
-for percorso_file in file_puliti:
-    with open(percorso_file, 'r', encoding='utf-8') as f:
-        record = json.load(f)
-        righe_csv.append(record)
-
-if righe_csv:
-    intestazioni = []
-    for riga in righe_csv:
-        for chiave in riga.keys():
-            if chiave not in intestazioni:
-                intestazioni.append(chiave)
-
-    with open(percorso_csv_uscita, 'w', encoding='utf-8', newline='') as f_csv:
-        writer = csv.DictWriter(f_csv, fieldnames=intestazioni, delimiter=';')
-        writer.writeheader()
+    if righe_csv:
+        intestazioni = []
         for riga in righe_csv:
-            riga_normalizzata = {}
-            for chiave in intestazioni:
-                valore = riga.get(chiave, "")
-                if isinstance(valore, list):
-                    riga_normalizzata[chiave] = " | ".join(str(item) for item in valore)
-                elif isinstance(valore, dict):
-                    riga_normalizzata[chiave] = json.dumps(valore, ensure_ascii=False)
-                elif valore is None:
-                    riga_normalizzata[chiave] = ""
-                else:
-                    riga_normalizzata[chiave] = valore
-            writer.writerow(riga_normalizzata)
+            for chiave in riga.keys():
+                if chiave not in intestazioni:
+                    intestazioni.append(chiave)
 
-    print(f"✅ CSV generato: '{percorso_csv_uscita}' ({len(righe_csv)} righe), separatore ';'.")
-else:
-    print("⚠️ Nessun file JSON trovato in 'letture_pulite': CSV non generato.")
+        with open(percorso_csv_uscita, 'w', encoding='utf-8', newline='') as f_csv:
+            writer = csv.DictWriter(f_csv, fieldnames=intestazioni, delimiter=';')
+            writer.writeheader()
+            for riga in righe_csv:
+                riga_normalizzata = {}
+                for chiave in intestazioni:
+                    valore = riga.get(chiave, "")
+                    if isinstance(valore, list):
+                        riga_normalizzata[chiave] = " | ".join(str(item) for item in valore)
+                    elif isinstance(valore, dict):
+                        riga_normalizzata[chiave] = json.dumps(valore, ensure_ascii=False)
+                    elif valore is None:
+                        riga_normalizzata[chiave] = ""
+                    else:
+                        riga_normalizzata[chiave] = valore
+                writer.writerow(riga_normalizzata)
+
+        print(f"✅ CSV generato: '{percorso_csv_uscita}' ({len(righe_csv)} righe), separatore ';'.")
+    else:
+        print("⚠️ Nessun file JSON trovato in 'letture_pulite': CSV non generato.")
+
+
+if __name__ == "__main__":
+    main()

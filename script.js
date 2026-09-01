@@ -39,6 +39,7 @@ const dateRangeDisplay = document.getElementById("date-range-display");
 const dateFromInput = document.getElementById("date-from");
 const dateToInput = document.getElementById("date-to");
 const dateRangeClearBtn = document.getElementById("date-range-clear");
+const contentTypeInput = document.getElementById("content-type");
 const template = document.getElementById("result-item-template");
 const resultsSection = document.querySelector(".results-section");
 const detailView = document.getElementById("detail-view");
@@ -1094,12 +1095,14 @@ async function runSearch() {
   const dateFrom = form.dateFrom.value;
   const dateTo = form.dateTo.value;
   const durationRange = form.durationRange.value;
+  const contentType = normalizeContentTypeFilterValue(contentTypeInput?.value || "");
 
   applyStructuredFilters(query, {
     channels,
     dateFrom,
     dateTo,
-    durationRange
+    durationRange,
+    contentType
   });
 
   if (!hasActiveFilters({
@@ -1109,7 +1112,8 @@ async function runSearch() {
     tags,
     dateFrom,
     dateTo,
-    durationRange
+    durationRange,
+    contentType
   })) {
     await loadLatestItems();
     return;
@@ -1122,7 +1126,8 @@ async function runSearch() {
     tags,
     dateFrom,
     dateTo,
-    durationRange
+    durationRange,
+    contentType
   });
   setActiveQuickRange(matchedQuickRange);
 
@@ -1133,7 +1138,8 @@ async function runSearch() {
     tags,
     dateFrom,
     dateTo,
-    durationRange
+    durationRange,
+    contentType
   });
 
   const needsLocalTextFilter = Boolean(text);
@@ -1260,6 +1266,17 @@ function renderResults(rows) {
     thumbLink.dataset.videoId = String(row.id || "");
     title.dataset.videoId = String(row.id || "");
     title.textContent = titleText;
+
+    const liveBadgeInfo = getLiveBadgeInfo(row);
+    if (liveBadgeInfo) {
+      const badgeEl = document.createElement("span");
+      badgeEl.className = `live-badge ${liveBadgeInfo.className}`;
+      badgeEl.textContent = liveBadgeInfo.text;
+      badgeEl.setAttribute("aria-label", liveBadgeInfo.ariaLabel);
+      badgeEl.title = liveBadgeInfo.ariaLabel;
+      thumbLink.appendChild(badgeEl);
+    }
+
     thumb.src = row.thumbnail || "https://placehold.co/640x360/e7eef1/10333a?text=No+Thumbnail";
     thumb.alt = `Anteprima ${titleText}`;
 
@@ -1270,12 +1287,13 @@ function renderResults(rows) {
     if (row.upload_date) {
       parts.push(formatUploadDate(row.upload_date));
     }
-    if (typeof row.view_count === "number") {
+    const viewCount = Number(row.view_count);
+    if (Number.isFinite(viewCount) && viewCount > 0) {
       const viewsLabel = getViewsLabel(isItalianContent);
-      parts.push(`${row.view_count.toLocaleString("it-IT")} ${viewsLabel}`);
+      parts.push(`${viewCount.toLocaleString("it-IT")} ${viewsLabel}`);
     }
     const durationText = formatDurationHms(row.duration);
-    if (durationText) {
+    if (durationText && String(durationText).trim() !== "00:00 minuti") {
       parts.push(`Durata ${durationText}`);
     }
 
@@ -1634,7 +1652,8 @@ function readFormFilters() {
     tagSearch: tagSearchInput?.value || "",
     dateFrom: form.dateFrom.value || "",
     dateTo: form.dateTo.value || "",
-    durationRange: form.durationRange.value || ""
+    durationRange: form.durationRange.value || "",
+    contentType: normalizeContentTypeFilterValue(contentTypeInput?.value || "")
   };
 }
 
@@ -1647,6 +1666,7 @@ function buildSearchSummaryTitle(filters) {
   const dateFrom = filters?.dateFrom || "";
   const dateTo = filters?.dateTo || "";
   const durationRange = filters?.durationRange || "";
+  const contentType = normalizeContentTypeFilterValue(filters?.contentType || "");
 
   if (q) {
     parts.push(`testo: \"${q}\"`);
@@ -1668,6 +1688,9 @@ function buildSearchSummaryTitle(filters) {
   }
   if (durationRange) {
     parts.push(`durata: ${getDurationRangeLabel(durationRange)}`);
+  }
+  if (contentType) {
+    parts.push(`tipo: ${getContentTypeLabel(contentType)}`);
   }
 
   if (parts.length === 0) {
@@ -1715,6 +1738,9 @@ function writeFormFilters(filters) {
     dateToInput.value = safe.dateTo || "";
   }
   form.durationRange.value = safe.durationRange || "";
+  if (contentTypeInput) {
+    contentTypeInput.value = denormalizeContentTypeFilterValue(safe.contentType || "");
+  }
   normalizeDateRange();
   updateDateRangeDisplay();
 }
@@ -1739,6 +1765,7 @@ function hasActiveFilters(filters) {
     || safe.dateFrom
     || safe.dateTo
     || safe.durationRange
+    || normalizeContentTypeFilterValue(safe.contentType || "")
   );
 }
 
@@ -1859,7 +1886,8 @@ function applyStructuredFilters(query, filters) {
     channels,
     dateFrom,
     dateTo,
-    durationRange
+    durationRange,
+    contentType
   } = filters;
 
   if (Array.isArray(channels) && channels.length > 0) {
@@ -1884,6 +1912,104 @@ function applyStructuredFilters(query, filters) {
   if (durationSpec?.maxInclusive !== undefined) {
     query.append("duration", `lte.${durationSpec.maxInclusive}`);
   }
+
+  if (contentType) {
+    query.set("content_type", `eq.${contentType}`);
+  }
+}
+
+function normalizeContentTypeFilterValue(rawValue) {
+  const value = String(rawValue || "").trim().toLowerCase();
+  if (value === "reels" || value === "short") {
+    return "short";
+  }
+  if (value === "live") {
+    return "live";
+  }
+  if (value === "video") {
+    return "video";
+  }
+  return "";
+}
+
+function denormalizeContentTypeFilterValue(value) {
+  const normalized = normalizeContentTypeFilterValue(value);
+  if (normalized === "short") {
+    return "reels";
+  }
+  return normalized;
+}
+
+function getContentTypeLabel(value) {
+  switch (normalizeContentTypeFilterValue(value)) {
+    case "video":
+      return "video";
+    case "short":
+      return "reels";
+    case "live":
+      return "live";
+    default:
+      return String(value || "");
+  }
+}
+
+function toBoolLoose(value) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "y";
+}
+
+function parseDateMaybe(value) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function getLiveBadgeInfo(row) {
+  if (normalizeContentTypeFilterValue(row?.content_type) !== "live") {
+    return null;
+  }
+
+  const liveStatus = String(row?.live_status || "").trim().toLowerCase();
+  const isLiveNow = toBoolLoose(row?.is_live_now) || liveStatus === "is_live";
+  const wasLive = toBoolLoose(row?.was_live) || liveStatus === "was_live" || liveStatus === "post_live";
+  const startsAt = parseDateMaybe(row?.live_started_at);
+  const isUpcoming = liveStatus === "is_upcoming"
+    || (!isLiveNow && !wasLive && startsAt instanceof Date && startsAt.getTime() > Date.now());
+
+  if (isLiveNow) {
+    return {
+      text: "LIVE • in corso",
+      className: "is-onair",
+      ariaLabel: "Evento live in corso"
+    };
+  }
+
+  if (isUpcoming) {
+    return {
+      text: "LIVE • in programma",
+      className: "is-upcoming",
+      ariaLabel: "Evento live in programma"
+    };
+  }
+
+  return {
+    text: "LIVE • terminata",
+    className: "is-ended",
+    ariaLabel: "Evento live terminato"
+  };
 }
 
 function getDurationRangeSpec(durationRange) {
@@ -2473,10 +2599,11 @@ function inferQuickRangeFromFilters(filters) {
   const hasAthletes = Array.isArray(safe.athletes) && safe.athletes.length > 0;
   const hasTags = Array.isArray(safe.tags) && safe.tags.length > 0;
   const hasDuration = Boolean(safe.durationRange);
+  const hasContentType = Boolean(normalizeContentTypeFilterValue(safe.contentType || ""));
   const dateFrom = String(safe.dateFrom || "");
   const dateTo = String(safe.dateTo || "");
 
-  if (hasText || hasChannels || hasAthletes || hasTags || hasDuration) {
+  if (hasText || hasChannels || hasAthletes || hasTags || hasDuration || hasContentType) {
     return "";
   }
 

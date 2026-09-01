@@ -16,10 +16,11 @@ Questa cartella contiene tutti gli script shell e Python del progetto.
     7. Esecuzione chunk con `esegui_upsert_chunks_psql.sh`
   - Invia anche una mail di fine esecuzione usando il log terminale (se `mail`/`sendmail` sono disponibili).
   - Modalita canali supportate:
-    - default: genera `YT_CHANNEL_SPECS` dal report RSS usando solo la colonna `video`.
+    - default: genera `YT_CHANNEL_SPECS` dal report RSS usando il volume recente `video + shorts`.
     - custom: se imposti `YT_CHANNEL_SPECS_FILE`, usa un file nel formato `numero|url`.
     - custom (rapida): con `--use-custom-channel-specs` usa automaticamente `scripts/youtube_channel_specs.custom.example.txt`.
   - Prima del download stampa sempre a console (e nel log verboso) l'elenco finale `numero|url` dei canali selezionati.
+  - Per ogni canale interroga in modo esplicito i tab `videos`, `shorts` e `streams`, cosi la pipeline puo distinguere meglio video normali, shorts e live/archivi live.
   - Regole di precedenza:
     - con `--use-custom-channel-specs` viene forzato il file custom fisso;
     - senza flag, se `YT_CHANNEL_SPECS_FILE` e impostata usa quel file;
@@ -36,7 +37,7 @@ Questa cartella contiene tutti gli script shell e Python del progetto.
     - `--days N` per impostare la finestra temporale.
     - `--channels-file FILE` per cambiare lista canali sorgente.
     - `--emit-specs` per produrre solo righe `numero|url`, usate da `aggiorna_dati.sh`.
-  - Regola su `--emit-specs`: se il numero video calcolato e `15`, emette `50|url` per approfondire la scansione; per gli altri valori emette il numero calcolato.
+  - Regola su `--emit-specs`: usa `video + shorts` come profondita di scansione; se il totale calcolato e `15`, emette `50|url` per approfondire la scansione.
 
 - `youtube_channels.txt`
   - Lista statica condivisa dei canali YouTube di default.
@@ -57,16 +58,22 @@ Questa cartella contiene tutti gli script shell e Python del progetto.
 ## Script Python
 
 - `ytp.py`
-  - Legge i JSON da `dati_grezzi/`, traduce e normalizza campi, rileva atleti, genera JSON puliti in `letture_pulite/` e `output.csv`.
+  - Legge i JSON da `dati_grezzi/`, traduce e normalizza campi, rileva atleti, classifica ogni contenuto come `video` / `short` / `live`, raccoglie metadati live, genera JSON puliti in `letture_pulite/` e `output.csv`.
+  - Salta automaticamente i record playlist/canale generati da `yt-dlp` che non rappresentano un video reale.
 
 - `csv_to_supabase_upsert_sql.py`
   - Converte `output.csv` in `output_upsert_from_csv.sql` (UPSERT su tabella `ping-video`).
+  - Supporta anche colonne boolean e JSON (`live_metadata`) oltre ai campi storici.
 
 - `split_upsert_sql_chunks.py`
   - Divide il file SQL monolitico in chunk per esecuzione piu robusta.
 
 - `supabase_upsert_csv.py`
   - Alternativa via REST per inviare `output.csv` a Supabase in batch.
+  - Supporta anche i nuovi campi `content_type`, flag live/short e payload JSON live.
+
+- `supabase_add_content_metadata_columns.sql`
+  - Migration SQL per aggiungere alla tabella `ping-video` i campi necessari a distinguere `video` / `short` / `live` e memorizzare i metadati live.
 
 - `live_watcher.py`
   - Monitor live YouTube (utility separata dalla pipeline principale).

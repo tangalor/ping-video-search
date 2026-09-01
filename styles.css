@@ -781,6 +781,61 @@ body {
 .thumb-wrap {
   display: block;
   background: #f2f5f8;
+  position: relative;
+  overflow: hidden;
+}
+
+.live-badge {
+  position: absolute;
+  top: 0.55rem;
+  left: 0.55rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.34rem 0.64rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  border: 1px solid transparent;
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+}
+
+.live-badge::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.live-badge.is-onair {
+  color: #ffffff;
+  background: linear-gradient(120deg, rgba(225, 19, 44, 0.95) 0%, rgba(255, 82, 40, 0.95) 100%);
+  border-color: rgba(255, 230, 230, 0.85);
+  box-shadow: 0 0 0 3px rgba(226, 36, 64, 0.25), 0 8px 18px rgba(226, 36, 64, 0.35);
+}
+
+.live-badge.is-onair::before {
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+.live-badge.is-upcoming {
+  color: #072340;
+  background: linear-gradient(120deg, rgba(125, 206, 255, 0.95) 0%, rgba(169, 232, 255, 0.95) 100%);
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+.live-badge.is-ended {
+  color: #14383f;
+  background: linear-gradient(120deg, rgba(198, 227, 231, 0.94) 0%, rgba(221, 239, 242, 0.94) 100%);
+  border-color: rgba(255, 255, 255, 0.88);
 }
 
 .thumb {
@@ -1194,6 +1249,19 @@ body {
 @keyframes spin-reverse {
   to {
     transform: rotate(-360deg);
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(0.6);
+    opacity: 0.55;
   }
 }
 

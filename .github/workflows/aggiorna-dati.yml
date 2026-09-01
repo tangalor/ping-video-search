@@ -19,8 +19,8 @@ on:
         type: boolean
         default: false
   schedule:
-    # 03:27 UTC ogni giorno.
-    - cron: "27 3 * * *"
+    # Minuto 27 ogni 3 ore (UTC): 00:27, 03:27, 06:27, ...
+    - cron: "27 */3 * * *"
 
 jobs:
   aggiorna-dati:
