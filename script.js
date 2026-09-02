@@ -65,6 +65,7 @@ const DEFAULT_PAGE_SIZE = 10;
 const LATEST_PAGE_SIZE = DEFAULT_PAGE_SIZE;
 const LATEST_TOTAL_LIMIT = 30;
 const BASE_PATH = getBasePath();
+const FOOTER_QUICK_LINK_INITIAL_LIMIT = 20;
 const FOOTER_ATHLETE_MIN_VISIBLE_VIDEOS = 10;
 const DETAIL_TAGS_COLLAPSE_MAX_ITEMS = 8;
 const DETAIL_TAGS_COLLAPSE_MAX_CHARS = 220;
@@ -88,6 +89,7 @@ let indexedVideoCount = null;
 let releaseVersionValue = "--";
 let footerChannelValues = [];
 let footerAthleteValues = [];
+let footerChannelsExpanded = false;
 let footerAthletesExpanded = false;
 let channelVideoCounts = new Map();
 let athleteVideoCounts = new Map();
@@ -173,21 +175,40 @@ function setHomeCountersLoading(isLoading) {
 }
 
 function setFilterOptionsLoading(isLoading) {
-  const targets = [
-    channelTotalCount,
-    footerChannelTotalCount,
-    athleteTotalCount,
-    footerAthleteTotalCount,
-    tagTotalCount
-  ].filter(Boolean);
+  setFilterSectionLoading("channel", isLoading);
+  setFilterSectionLoading("athlete", isLoading);
+  setFilterSectionLoading("tag", isLoading);
+}
 
-  for (const el of targets) {
-    el.classList.toggle("is-inline-loading", Boolean(isLoading));
-    el.setAttribute("aria-busy", isLoading ? "true" : "false");
+function setFilterSectionLoading(section, isLoading) {
+  const loading = Boolean(isLoading);
+
+  if (section === "channel") {
+    const channelTargets = [channelTotalCount, footerChannelTotalCount].filter(Boolean);
+    for (const el of channelTargets) {
+      el.classList.toggle("is-inline-loading", loading);
+      el.setAttribute("aria-busy", loading ? "true" : "false");
+    }
+    toggleFooterLoader(footerChannelLinksEl, loading, "Caricamento canali");
+    return;
   }
 
-  toggleFooterLoader(footerChannelLinksEl, isLoading, "Caricamento canali");
-  toggleFooterLoader(footerAthleteLinksEl, isLoading, "Caricamento atleti");
+  if (section === "athlete") {
+    const athleteTargets = [athleteTotalCount, footerAthleteTotalCount].filter(Boolean);
+    for (const el of athleteTargets) {
+      el.classList.toggle("is-inline-loading", loading);
+      el.setAttribute("aria-busy", loading ? "true" : "false");
+    }
+    toggleFooterLoader(footerAthleteLinksEl, loading, "Caricamento atleti");
+    return;
+  }
+
+  if (section === "tag") {
+    if (tagTotalCount) {
+      tagTotalCount.classList.toggle("is-inline-loading", loading);
+      tagTotalCount.setAttribute("aria-busy", loading ? "true" : "false");
+    }
+  }
 }
 
 function toggleFooterLoader(container, isLoading, label) {
@@ -212,7 +233,6 @@ function toggleFooterLoader(container, isLoading, label) {
   container.innerHTML = "";
   const loader = document.createElement("span");
   loader.className = "footer-filter-loader";
-  loader.setAttribute("role", "status");
   loader.setAttribute("aria-label", label);
   container.appendChild(loader);
 }
@@ -335,6 +355,13 @@ function bindEvents() {
 
   if (footerChannelLinksEl) {
     footerChannelLinksEl.addEventListener("click", async (event) => {
+      const expandButton = event.target.closest("button[data-action='expand-channels']");
+      if (expandButton) {
+        footerChannelsExpanded = true;
+        renderFooterQuickLinks(footerChannelLinksEl, footerChannelValues, "channel");
+        return;
+      }
+
       const button = event.target.closest("button[data-filter-value]");
       if (!button) {
         return;
@@ -487,62 +514,131 @@ async function ensureFilterOptionsLoaded() {
 async function loadFilterOptions() {
   setFilterOptionsLoading(true);
 
+  const results = await Promise.allSettled([
+    loadChannelFilterOptions(),
+    loadAthleteFilterOptions(),
+    loadTagFilterOptions()
+  ]);
+
+  const hasError = results.some((result) => result.status === "rejected");
+  if (hasError) {
+    showStatus("Alcune opzioni filtro non sono state caricate completamente.");
+  }
+}
+
+async function loadChannelFilterOptions() {
+  setFilterSectionLoading("channel", true);
+
   try {
     const query = new URLSearchParams();
-    query.set("select", "channel,atleti,tags");
+    query.set("select", "channel");
     query.set("order", "channel.asc");
     const rows = await fetchAllRows(query, 500);
 
     const channelsByKey = new Map();
-    const athletesByKey = new Map();
-    const tagsByKey = new Map();
     channelVideoCounts = new Map();
-    athleteVideoCounts = new Map();
-    tagVideoCounts = new Map();
 
     for (const row of rows) {
-      if (row.channel) {
-        const channelName = String(row.channel || "").trim();
-        const key = normalizeSearchText(channelName);
-        if (key && !channelsByKey.has(key)) {
-          channelsByKey.set(key, channelName);
-        }
-        if (key) {
-          channelVideoCounts.set(key, (channelVideoCounts.get(key) || 0) + 1);
-        }
+      if (!row.channel) {
+        continue;
       }
 
+      const channelName = String(row.channel || "").trim();
+      const key = normalizeSearchText(channelName);
+      if (!key) {
+        continue;
+      }
+
+      if (!channelsByKey.has(key)) {
+        channelsByKey.set(key, channelName);
+      }
+      channelVideoCounts.set(key, (channelVideoCounts.get(key) || 0) + 1);
+    }
+
+    renderChannelOptions(sortByVideoCount([...channelsByKey.values()], channelVideoCounts, normalizeSearchText));
+  } catch (error) {
+    renderChannelOptions([]);
+    throw error;
+  } finally {
+    setFilterSectionLoading("channel", false);
+  }
+}
+
+async function loadAthleteFilterOptions() {
+  setFilterSectionLoading("athlete", true);
+
+  try {
+    const query = new URLSearchParams();
+    query.set("select", "atleti");
+    const rows = await fetchAllRows(query, 500);
+
+    const athletesByKey = new Map();
+    athleteVideoCounts = new Map();
+
+    for (const row of rows) {
       const athleteNames = normalizeAthletesValue(row.atleti);
       const athleteKeysForRow = new Set();
+
       for (const name of athleteNames) {
         const displayName = formatAthleteDisplayName(name);
-        if (displayName && isValidAthleteOption(displayName)) {
-          const key = buildAthleteCanonicalKey(displayName);
-          if (key && !athletesByKey.has(key)) {
-            athletesByKey.set(key, displayName);
-          }
-          if (key) {
-            athleteKeysForRow.add(key);
-          }
+        if (!displayName || !isValidAthleteOption(displayName)) {
+          continue;
         }
+
+        const key = buildAthleteCanonicalKey(displayName);
+        if (!key) {
+          continue;
+        }
+
+        if (!athletesByKey.has(key)) {
+          athletesByKey.set(key, displayName);
+        }
+        athleteKeysForRow.add(key);
       }
 
       for (const athleteKey of athleteKeysForRow) {
         athleteVideoCounts.set(athleteKey, (athleteVideoCounts.get(athleteKey) || 0) + 1);
       }
+    }
 
+    renderAthleteOptions(sortByVideoCount([...athletesByKey.values()], athleteVideoCounts, buildAthleteCanonicalKey));
+  } catch (error) {
+    renderAthleteOptions([]);
+    throw error;
+  } finally {
+    setFilterSectionLoading("athlete", false);
+  }
+}
+
+async function loadTagFilterOptions() {
+  setFilterSectionLoading("tag", true);
+
+  try {
+    const query = new URLSearchParams();
+    query.set("select", "tags");
+    const rows = await fetchAllRows(query, 500);
+
+    const tagsByKey = new Map();
+    tagVideoCounts = new Map();
+
+    for (const row of rows) {
       const tagNames = normalizeTagsValue(row.tags);
       const tagKeysForRow = new Set();
+
       for (const name of tagNames) {
-        if (name && !isTimeLikeTag(name)) {
-          const key = normalizeSearchText(name);
-          if (key && !tagsByKey.has(key)) {
-            tagsByKey.set(key, name);
-          }
-          if (key) {
-            tagKeysForRow.add(key);
-          }
+        if (!name || isTimeLikeTag(name)) {
+          continue;
         }
+
+        const key = normalizeSearchText(name);
+        if (!key) {
+          continue;
+        }
+
+        if (!tagsByKey.has(key)) {
+          tagsByKey.set(key, name);
+        }
+        tagKeysForRow.add(key);
       }
 
       for (const tagKey of tagKeysForRow) {
@@ -550,21 +646,18 @@ async function loadFilterOptions() {
       }
     }
 
-    renderChannelOptions(sortByVideoCount([...channelsByKey.values()], channelVideoCounts, normalizeSearchText));
-    renderAthleteOptions(sortByVideoCount([...athletesByKey.values()], athleteVideoCounts, buildAthleteCanonicalKey));
     renderTagOptions(sortAlphabetically([...tagsByKey.values()]));
   } catch (error) {
-    showStatus("Impossibile caricare le opzioni filtro.");
-    renderChannelOptions([]);
-    renderAthleteOptions([]);
     renderTagOptions([]);
+    throw error;
   } finally {
-    setFilterOptionsLoading(false);
+    setFilterSectionLoading("tag", false);
   }
 }
 
 function renderChannelOptions(values) {
   footerChannelValues = Array.isArray(values) ? [...values] : [];
+  footerChannelsExpanded = false;
   renderFooterQuickLinks(footerChannelLinksEl, footerChannelValues, "channel");
   updateFilterTotalCount(channelTotalCount, values.length);
   updateFilterTotalCount(footerChannelTotalCount, values.length);
@@ -784,12 +877,12 @@ function renderFooterQuickLinks(container, values, type) {
     fragment.appendChild(button);
   }
 
-  if (type === "athlete" && !footerAthletesExpanded && visibleValues.length < values.length) {
+  if ((type === "channel" || type === "athlete") && visibleValues.length < values.length) {
     const moreButton = document.createElement("button");
     moreButton.type = "button";
     moreButton.className = "footer-filter-more-btn";
-    moreButton.dataset.action = "expand-athletes";
-    moreButton.textContent = "Mostra di piu";
+    moreButton.dataset.action = type === "channel" ? "expand-channels" : "expand-athletes";
+    moreButton.textContent = "Mostra tutti";
     fragment.appendChild(moreButton);
   }
 
@@ -797,6 +890,14 @@ function renderFooterQuickLinks(container, values, type) {
 }
 
 function getVisibleFooterQuickLinkValues(values, type) {
+  if (type === "channel") {
+    return footerChannelsExpanded ? values : values.slice(0, FOOTER_QUICK_LINK_INITIAL_LIMIT);
+  }
+
+  if (type === "athlete") {
+    return footerAthletesExpanded ? values : values.slice(0, FOOTER_QUICK_LINK_INITIAL_LIMIT);
+  }
+
   if (type !== "athlete" || footerAthletesExpanded) {
     return values;
   }
@@ -1520,7 +1621,7 @@ async function goBackFromDetail() {
     return;
   }
 
-  if (window.history.length > 1) {
+  if (currentState?.view === "detail" && window.history.length > 1) {
     window.history.back();
     return;
   }
@@ -2688,8 +2789,9 @@ async function applyFooterQuickFilter(type, value) {
   }
 
   showHomeView();
+  renderLoading();
+  scrollToResultsIfNeeded({ behavior: "auto" });
   await runSearch();
-  scrollToResultsIfNeeded({ defer: true });
 }
 
 function setActiveQuickRange(rangeKey) {

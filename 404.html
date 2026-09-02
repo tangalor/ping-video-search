@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reindirizzamento...</title>
+  <script>
+    (function () {
+      var path = window.location.pathname || "/";
+      var search = window.location.search || "";
+      var hash = window.location.hash || "";
+      var basePath = path.replace(/\/404\.html$/, "") || "/";
+
+      if (!basePath.endsWith("/")) {
+        basePath += "/";
+      }
+
+      var targetPath = path + search + hash;
+      var redirectUrl = basePath + "?p=" + encodeURIComponent(targetPath);
+      window.location.replace(redirectUrl);
+    })();
+  </script>
+</head>
+<body>
+  <p>Reindirizzamento in corso...</p>
+</body>
+</html>

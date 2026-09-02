@@ -1142,18 +1142,31 @@ body {
 }
 
 .footer-filter-links.is-loading {
-  min-height: 1rem;
+  min-height: 1.5rem;
   align-items: center;
 }
 
 .footer-filter-loader {
+  position: relative;
   display: inline-block;
-  width: min(320px, 72%);
-  height: 0.5rem;
+  width: min(420px, 100%);
+  max-width: 100%;
+  height: 0.8rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(191, 203, 211, 0.34) 12%, rgba(223, 233, 238, 0.9) 40%, rgba(191, 203, 211, 0.34) 72%);
+  background: linear-gradient(90deg, rgba(204, 213, 219, 0.36) 8%, rgba(241, 246, 249, 0.96) 26%, rgba(255, 171, 102, 0.78) 50%, rgba(241, 246, 249, 0.96) 74%, rgba(204, 213, 219, 0.36) 92%);
   background-size: 220% 100%;
-  animation: shimmer-horizontal 1.15s linear infinite;
+  box-shadow: inset 0 0 0 1px rgba(255, 107, 53, 0.14), 0 4px 14px rgba(23, 126, 137, 0.08);
+  animation: shimmer-horizontal 1s linear infinite;
+}
+
+.footer-filter-loader::after {
+  content: "";
+  position: absolute;
+  inset: 0.14rem 0.8rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.86) 50%, rgba(255, 255, 255, 0) 100%);
+  background-size: 180% 100%;
+  animation: shimmer-horizontal 0.95s linear infinite reverse;
 }
 
 .footer-filter-link {
