@@ -1888,10 +1888,10 @@ function buildSearchSummaryTitle(filters) {
     parts.push(`tag: ${tags.join(", ")}`);
   }
   if (dateFrom) {
-    parts.push(`da: ${dateFrom}`);
+    parts.push(`da: ${formatIsoDateToIt(dateFrom)}`);
   }
   if (dateTo) {
-    parts.push(`a: ${dateTo}`);
+    parts.push(`a: ${formatIsoDateToIt(dateTo)}`);
   }
   if (durationRange) {
     parts.push(`durata: ${getDurationRangeLabel(durationRange)}`);
@@ -2249,6 +2249,7 @@ function formatLiveStartDateTime(value) {
   return new Intl.DateTimeFormat("it-IT", {
     day: "2-digit",
     month: "2-digit",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit"
   }).format(value).replace(",", "");
@@ -2585,6 +2586,14 @@ function formatDetailValueByKey(key, value, isItalianContent) {
     return formatUploadDate(value);
   }
 
+  if (key.endsWith("_at") || key.includes("timestamp") || key.includes("datetime")) {
+    return formatDateTimeValue(value);
+  }
+
+  if (key.includes("date")) {
+    return formatDateValue(value);
+  }
+
   if (key === "view_count") {
     const numberValue = Number(value);
     if (Number.isFinite(numberValue)) {
@@ -2678,15 +2687,7 @@ function formatUploadDate(yyyymmdd) {
     return "Data n/d";
   }
 
-  const value = String(yyyymmdd);
-  if (!/^\d{8}$/.test(value)) {
-    return value;
-  }
-
-  const year = value.slice(0, 4);
-  const month = value.slice(4, 6);
-  const day = value.slice(6, 8);
-  return `${day}/${month}/${year}`;
+  return formatDateValue(yyyymmdd);
 }
 
 function compactDate(dateValue) {
@@ -2947,11 +2948,61 @@ function getTodayIsoDate() {
 }
 
 function formatIsoDateToIt(isoDate) {
-  const value = String(isoDate || "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+  return formatDateValue(isoDate);
+}
+
+function formatDateValue(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) {
+    return "n/d";
+  }
+
+  if (/^\d{8}$/.test(value)) {
+    const year = value.slice(0, 4);
+    const month = value.slice(4, 6);
+    const day = value.slice(6, 8);
+    return `${day}/${month}/${year}`;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-");
+    return `${day}/${month}/${year}`;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    const parsed = parseDateMaybe(value);
+    if (parsed) {
+      return new Intl.DateTimeFormat("it-IT", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      }).format(parsed);
+    }
+  }
+
+  return value;
+}
+
+function formatDateTimeValue(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) {
+    return "n/d";
+  }
+
+  if (/^\d{8}$/.test(value) || /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return formatDateValue(value);
+  }
+
+  const parsed = parseDateMaybe(value);
+  if (!parsed) {
     return value;
   }
 
-  const [year, month, day] = value.split("-");
-  return `${day}/${month}/${year}`;
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(parsed).replace(",", "");
 }
