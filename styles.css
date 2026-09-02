@@ -91,6 +91,7 @@ body {
   font-size: 2em;
   letter-spacing: 0.02em;
   line-height: 1;
+  max-width: 100%;
 }
 
 .brand-lockup-compact {
@@ -841,7 +842,7 @@ body {
   left: 0.55rem;
   z-index: 2;
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.4rem;
   border-radius: 999px;
   padding: 0.34rem 0.64rem;
@@ -854,6 +855,27 @@ body {
   backdrop-filter: blur(1.5px);
   -webkit-backdrop-filter: blur(1.5px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+}
+
+.live-badge-copy {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.live-badge-main {
+  display: block;
+  line-height: 1.05;
+}
+
+.live-badge-sub {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  text-transform: none;
+  opacity: 0.95;
 }
 
 .live-badge::before {
@@ -873,7 +895,8 @@ body {
 }
 
 .live-badge.is-onair::before {
-  animation: pulse-dot 1s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(244, 197, 49, 0.78), 0 0 0 4px rgba(244, 197, 49, 0.34);
+  animation: pulse-dot 1s ease-in-out infinite, pulse-gold-halo 1.2s ease-out infinite;
 }
 
 .live-badge.is-upcoming {
@@ -1330,6 +1353,20 @@ body {
   }
 }
 
+@keyframes pulse-gold-halo {
+  0% {
+    box-shadow: 0 0 0 0 rgba(244, 197, 49, 0.78), 0 0 0 4px rgba(244, 197, 49, 0.34);
+  }
+
+  70% {
+    box-shadow: 0 0 0 8px rgba(244, 197, 49, 0), 0 0 0 2px rgba(244, 197, 49, 0.14);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(244, 197, 49, 0), 0 0 0 0 rgba(244, 197, 49, 0);
+  }
+}
+
 @keyframes shimmer-horizontal {
   from {
     background-position: 200% 0;
@@ -1351,6 +1388,42 @@ body {
 }
 
 @media (max-width: 680px) {
+  .hero h1 {
+    max-width: 100%;
+  }
+
+  .brand-lockup {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.32rem;
+    max-width: 100%;
+  }
+
+  .brand-logo {
+    width: clamp(6.2rem, 38vw, 8.8rem);
+  }
+
+  .brand-text {
+    font-size: 3.96rem;
+    line-height: 1.08;
+  }
+
+  .brand-lockup-compact {
+    gap: 0.24rem;
+  }
+
+  .brand-lockup-compact .brand-logo {
+    width: clamp(4.8rem, 28vw, 6.4rem);
+  }
+
+  .detail-head {
+    flex-wrap: wrap;
+  }
+
+  .detail-site-title {
+    width: 100%;
+  }
+
   .page {
     width: min(1100px, calc(100% - 2.4rem));
     padding-top: 1.25rem;
@@ -1377,10 +1450,12 @@ body {
 
   .quick-range-btn {
     width: 100%;
-    min-height: 2.7rem;
+    min-height: 4.2rem;
+    height: 4.2rem;
     padding: 0.45rem 0.5rem;
     font-size: 0.78rem;
     line-height: 1.2;
+    white-space: normal;
   }
 
   .results-head-right {

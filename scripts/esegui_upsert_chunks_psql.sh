@@ -298,3 +298,62 @@ else
 fi
 
 rm -f "$cleanup_sql_file" "$cleanup_output_file"
+
+print_status "INFO" "Avvio backfill finale live events (keyword match)..." "$COLOR_CYAN"
+
+live_backfill_sql_file="$(mktemp)"
+live_backfill_output_file="$(mktemp)"
+
+cat > "$live_backfill_sql_file" <<'SQL'
+BEGIN;
+
+WITH candidates AS (
+  SELECT id
+  FROM public."ping-video"
+  WHERE (
+    COALESCE(title_it, '') || ' ' ||
+    COALESCE(title_en, '') || ' ' ||
+    COALESCE(description_it, '') || ' ' ||
+    COALESCE(description_en, '')
+  ) ~* '(\mlive\M|\mstream\M|\mstreaming\M)'
+)
+UPDATE public."ping-video" p
+SET
+  content_type = 'live',
+  is_short = false,
+  is_live_now = false,
+  was_live = true,
+  live_status = 'was_live',
+  live_started_at = NULL,
+  live_published_at = COALESCE(
+    p.live_published_at,
+    CASE
+      WHEN p.upload_date::text ~ '^\d{8}$'
+      THEN (to_date(p.upload_date::text, 'YYYYMMDD')::timestamp AT TIME ZONE 'UTC')
+      ELSE NULL
+    END
+  ),
+  live_metadata = COALESCE(p.live_metadata, '{}'::jsonb) || jsonb_build_object(
+    'backfill_source', 'keyword_match',
+    'backfill_rule', 'title_desc_live_stream_streaming_v1',
+    'backfill_keywords', ARRAY['live', 'stream', 'streaming'],
+    'backfill_at', now()
+  )
+FROM candidates c
+WHERE p.id = c.id
+  AND p.content_type <> 'live';
+
+COMMIT;
+SQL
+
+if run_psql_with_retries "$live_backfill_sql_file" "$live_backfill_output_file"; then
+  cat "$live_backfill_output_file"
+  print_status "OK" "Backfill live events completato." "$COLOR_GREEN"
+else
+  print_status "ERRORE" "Backfill live events fallito." "$COLOR_RED"
+  cat "$live_backfill_output_file" >&2
+  rm -f "$live_backfill_sql_file" "$live_backfill_output_file"
+  exit 1
+fi
+
+rm -f "$live_backfill_sql_file" "$live_backfill_output_file"

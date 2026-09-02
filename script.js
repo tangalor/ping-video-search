@@ -1340,7 +1340,23 @@ function renderResults(rows) {
     if (liveBadgeInfo) {
       const badgeEl = document.createElement("span");
       badgeEl.className = `live-badge ${liveBadgeInfo.className}`;
-      badgeEl.textContent = liveBadgeInfo.text;
+
+      const badgeCopyEl = document.createElement("span");
+      badgeCopyEl.className = "live-badge-copy";
+
+      const badgeMainEl = document.createElement("span");
+      badgeMainEl.className = "live-badge-main";
+      badgeMainEl.textContent = liveBadgeInfo.text;
+      badgeCopyEl.appendChild(badgeMainEl);
+
+      if (liveBadgeInfo.subtext) {
+        const badgeSubEl = document.createElement("span");
+        badgeSubEl.className = "live-badge-sub";
+        badgeSubEl.textContent = liveBadgeInfo.subtext;
+        badgeCopyEl.appendChild(badgeSubEl);
+      }
+
+      badgeEl.appendChild(badgeCopyEl);
       badgeEl.setAttribute("aria-label", liveBadgeInfo.ariaLabel);
       badgeEl.title = liveBadgeInfo.ariaLabel;
       thumbLink.appendChild(badgeEl);
@@ -2051,26 +2067,48 @@ function getLiveBadgeInfo(row) {
     return null;
   }
 
+  const nowMs = Date.now();
   const liveStatus = String(row?.live_status || "").trim().toLowerCase();
   const isLiveNow = toBoolLoose(row?.is_live_now) || liveStatus === "is_live";
   const wasLive = toBoolLoose(row?.was_live) || liveStatus === "was_live" || liveStatus === "post_live";
   const startsAt = parseDateMaybe(row?.live_started_at);
-  const isUpcoming = liveStatus === "is_upcoming"
-    || (!isLiveNow && !wasLive && startsAt instanceof Date && startsAt.getTime() > Date.now());
+  const startsAtMs = startsAt instanceof Date ? startsAt.getTime() : NaN;
+  const hasScheduledStart = Number.isFinite(startsAtMs);
+  const scheduledStartPassed = hasScheduledStart && startsAtMs <= nowMs;
+  const fallbackOnAirWindowMs = 12 * 60 * 60 * 1000;
+  const isLikelyLiveInProgress = !isLiveNow
+    && !wasLive
+    && scheduledStartPassed
+    && (liveStatus === "is_upcoming" || liveStatus === "")
+    && nowMs - startsAtMs <= fallbackOnAirWindowMs;
 
-  if (isLiveNow) {
+  if (isLiveNow || isLikelyLiveInProgress) {
+    const ariaLabel = isLikelyLiveInProgress
+      ? "Evento live in corso (stimato dal frontend in base all'orario di inizio)"
+      : "Evento live in corso";
+
     return {
       text: "LIVE • in corso",
       className: "is-onair",
-      ariaLabel: "Evento live in corso"
+      ariaLabel
     };
   }
 
+  const isUpcoming = liveStatus === "is_upcoming"
+    || (!isLiveNow && !wasLive && hasScheduledStart && startsAtMs > nowMs);
+
   if (isUpcoming) {
+    const startsAtText = formatLiveStartDateTime(startsAt);
+    const subtext = startsAtText ? `Inizio ${startsAtText}` : "";
+    const ariaLabel = startsAtText
+      ? `Evento live in programma. Inizio previsto il ${startsAtText}`
+      : "Evento live in programma";
+
     return {
       text: "LIVE • in programma",
       className: "is-upcoming",
-      ariaLabel: "Evento live in programma"
+      ariaLabel,
+      subtext
     };
   }
 
@@ -2079,6 +2117,19 @@ function getLiveBadgeInfo(row) {
     className: "is-ended",
     ariaLabel: "Evento live terminato"
   };
+}
+
+function formatLiveStartDateTime(value) {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(value).replace(",", "");
 }
 
 function getDurationRangeSpec(durationRange) {
