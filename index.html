@@ -8,10 +8,22 @@
     (function () {
       var path = window.location.pathname || "/";
       var search = window.location.search || "";
+      var redirectedPath = "";
+
+      try {
+        redirectedPath = window.sessionStorage.getItem("pingtv.redirectPath") || "";
+        if (redirectedPath) {
+          window.sessionStorage.removeItem("pingtv.redirectPath");
+        }
+      } catch (error) {
+        redirectedPath = "";
+      }
 
       try {
         var params = new URLSearchParams(search);
-        var redirectedPath = params.get("p");
+        if (!redirectedPath) {
+          redirectedPath = params.get("p") || "";
+        }
 
         if (redirectedPath && redirectedPath.charAt(0) === "/") {
           params.delete("p");
