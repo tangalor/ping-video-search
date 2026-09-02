@@ -362,6 +362,13 @@ function bindEvents() {
         return;
       }
 
+      const collapseButton = event.target.closest("button[data-action='collapse-channels']");
+      if (collapseButton) {
+        footerChannelsExpanded = false;
+        renderFooterQuickLinks(footerChannelLinksEl, footerChannelValues, "channel");
+        return;
+      }
+
       const button = event.target.closest("button[data-filter-value]");
       if (!button) {
         return;
@@ -376,6 +383,13 @@ function bindEvents() {
       const expandButton = event.target.closest("button[data-action='expand-athletes']");
       if (expandButton) {
         footerAthletesExpanded = true;
+        renderFooterQuickLinks(footerAthleteLinksEl, footerAthleteValues, "athlete");
+        return;
+      }
+
+      const collapseButton = event.target.closest("button[data-action='collapse-athletes']");
+      if (collapseButton) {
+        footerAthletesExpanded = false;
         renderFooterQuickLinks(footerAthleteLinksEl, footerAthleteValues, "athlete");
         return;
       }
@@ -877,13 +891,20 @@ function renderFooterQuickLinks(container, values, type) {
     fragment.appendChild(button);
   }
 
-  if ((type === "channel" || type === "athlete") && visibleValues.length < values.length) {
-    const moreButton = document.createElement("button");
-    moreButton.type = "button";
-    moreButton.className = "footer-filter-more-btn";
-    moreButton.dataset.action = type === "channel" ? "expand-channels" : "expand-athletes";
-    moreButton.textContent = "Mostra tutti";
-    fragment.appendChild(moreButton);
+  if (type === "channel" || type === "athlete") {
+    const isExpanded = type === "channel" ? footerChannelsExpanded : footerAthletesExpanded;
+    const hasMoreValues = values.length > FOOTER_QUICK_LINK_INITIAL_LIMIT;
+
+    if (hasMoreValues) {
+      const moreButton = document.createElement("button");
+      moreButton.type = "button";
+      moreButton.className = "footer-filter-more-btn";
+      moreButton.dataset.action = isExpanded
+        ? (type === "channel" ? "collapse-channels" : "collapse-athletes")
+        : (type === "channel" ? "expand-channels" : "expand-athletes");
+      moreButton.textContent = isExpanded ? "Mostra meno" : "Mostra tutti";
+      fragment.appendChild(moreButton);
+    }
   }
 
   container.appendChild(fragment);
