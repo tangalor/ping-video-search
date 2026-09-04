@@ -1534,7 +1534,7 @@ async function loadLiveCarousel() {
   }
 
   liveCarouselSection.dataset.hasItems = "false";
-  setLiveCarouselVisibility(true);
+  setLiveCarouselVisibility(false);
   updateLivePresenceDot(false);
   liveCarouselStatus.textContent = "Caricamento live...";
   liveCarouselTrack.innerHTML = "";
@@ -1596,10 +1596,10 @@ async function openLiveProgramPage(pushHistory) {
     liveEndedMeta.textContent = "Caricamento live terminate...";
   }
   if (liveProgramList) {
-    liveProgramList.innerHTML = "";
+    renderListLoader(liveProgramList, "Caricamento programma live...");
   }
   if (liveEndedList) {
-    liveEndedList.innerHTML = "";
+    renderListLoader(liveEndedList, "Caricamento live terminate...");
   }
   if (liveEndedPaginationEl) {
     liveEndedPaginationEl.classList.add("hidden");
@@ -1767,6 +1767,31 @@ function renderLiveProgramListToContainer(container, rows) {
   container.appendChild(fragment);
 }
 
+function renderListLoader(container, textValue) {
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+
+  const item = document.createElement("li");
+  item.className = "results-loader";
+  item.setAttribute("role", "status");
+  item.setAttribute("aria-live", "polite");
+
+  const spinner = document.createElement("span");
+  spinner.className = "results-loader-spinner";
+  spinner.setAttribute("aria-hidden", "true");
+
+  const text = document.createElement("span");
+  text.className = "results-loader-text";
+  text.textContent = textValue || "Caricamento in corso...";
+
+  item.appendChild(spinner);
+  item.appendChild(text);
+  container.appendChild(item);
+}
+
 function createLiveProgramResultItem(row) {
   videoCache.set(String(row.id), row);
 
@@ -1898,7 +1923,7 @@ function renderLiveCarousel(rows) {
 
   liveCarouselTrack.appendChild(fragment);
   liveCarouselSection.dataset.hasItems = "true";
-  setLiveCarouselVisibility(true);
+  setLiveCarouselVisibility(isHomePath(window.location.pathname));
   liveCarouselStatus.textContent = `${rows.length} live in corso o programmate (future)`;
 }
 
@@ -3015,7 +3040,7 @@ function showHomeView({ showResultsSection = true } = {}) {
   stopDetailPlayback();
   heroSection.classList.remove("hidden");
   searchCard.classList.remove("hidden");
-  setLiveCarouselVisibility(liveCarouselSection?.dataset.hasItems === "true");
+  setLiveCarouselVisibility(liveCarouselSection?.dataset.hasItems === "true" && isHomePath(window.location.pathname));
   resultsSection.classList.toggle("hidden", !showResultsSection);
   detailView.classList.add("hidden");
   if (liveProgramView) {
@@ -3289,6 +3314,10 @@ function parseVideoIdFromPath(pathname) {
 function isLiveProgramPath(pathname) {
   const relativePath = stripBasePath(pathname);
   return /^\/live-programma\/?$/.test(String(relativePath || ""));
+}
+
+function isHomePath(pathname) {
+  return !parseVideoIdFromPath(pathname) && !isLiveProgramPath(pathname);
 }
 
 function getBasePath() {
