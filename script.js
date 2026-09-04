@@ -78,6 +78,7 @@ const footerAthleteLinksEl = document.getElementById("footer-athlete-links");
 const filtersPanel = document.getElementById("filters-panel");
 const filtersToggleBtn = document.getElementById("filters-toggle-btn");
 const homeBrandLinks = document.querySelectorAll(".home-brand-link");
+const backToTopBtn = document.getElementById("back-to-top-btn");
 const SUPABASE_API_KEY = window.APP_CONFIG?.supabaseApiKey || "";
 const videoCache = new Map();
 const DEFAULT_PAGE_SIZE = 10;
@@ -628,6 +629,25 @@ function bindEvents() {
   window.addEventListener("popstate", async (event) => {
     await syncViewWithRoute(event.state || null);
   });
+
+  if (backToTopBtn) {
+    backToTopBtn.addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  window.addEventListener("scroll", updateBackToTopVisibility, { passive: true });
+  updateBackToTopVisibility();
+}
+
+function updateBackToTopVisibility() {
+  if (!backToTopBtn) {
+    return;
+  }
+
+  const shouldShow = window.scrollY > 220;
+  backToTopBtn.classList.toggle("is-visible", shouldShow);
+  backToTopBtn.setAttribute("aria-hidden", shouldShow ? "false" : "true");
 }
 
 async function ensureFilterOptionsLoaded() {
