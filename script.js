@@ -14,6 +14,12 @@ const releaseVersionEl = document.getElementById("release-version");
 const resetBtn = document.getElementById("reset-btn");
 const heroSection = document.querySelector(".hero");
 const searchCard = document.querySelector(".search-card");
+const liveCarouselSection = document.getElementById("live-carousel-section");
+const liveCarouselTrack = document.getElementById("live-carousel-track");
+const liveCarouselStatus = document.getElementById("live-carousel-status");
+const liveCarouselPrevBtn = document.getElementById("live-carousel-prev");
+const liveCarouselNextBtn = document.getElementById("live-carousel-next");
+const livePresenceDot = document.getElementById("live-presence-dot");
 const channelOptionsEl = document.getElementById("channel-options");
 const channelSearchInput = document.getElementById("channel-search");
 const channelToggleBtn = document.getElementById("channel-toggle-btn");
@@ -70,6 +76,8 @@ const FOOTER_ATHLETE_MIN_VISIBLE_VIDEOS = 10;
 const DETAIL_TAGS_COLLAPSE_MAX_ITEMS = 8;
 const DETAIL_TAGS_COLLAPSE_MAX_CHARS = 220;
 const DETAIL_DESCRIPTION_COLLAPSE_MAX_CHARS = 360;
+const LIVE_FRONTEND_ONAIR_WINDOW_MS = 6 * 60 * 60 * 1000;
+const LIVE_CAROUSEL_ONAIR_LOOKBACK_MS = 48 * 60 * 60 * 1000;
 
 let pagingState = {
   mode: "latest",
@@ -120,6 +128,7 @@ async function init() {
   await Promise.all([
     loadReleaseVersion(),
     loadIndexedVideoCount(),
+    loadLiveCarousel(),
     syncViewWithRoute()
   ]);
 }
@@ -261,8 +270,9 @@ function bindEvents() {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     showHomeView();
+    renderLoading();
+    scrollToResultsIfNeeded({ behavior: "auto" });
     await runSearch();
-    scrollToResultsIfNeeded();
   });
 
   if (filtersToggleBtn && filtersPanel) {
@@ -400,6 +410,37 @@ function bindEvents() {
       }
 
       await applyFooterQuickFilter("athlete", button.dataset.filterValue || "");
+    });
+  }
+
+  if (liveCarouselPrevBtn && liveCarouselTrack) {
+    liveCarouselPrevBtn.addEventListener("click", () => {
+      const scrollAmount = Math.max(280, Math.floor(liveCarouselTrack.clientWidth * 0.72));
+      liveCarouselTrack.scrollBy({ left: -scrollAmount, behavior: "smooth" });
+    });
+  }
+
+  if (liveCarouselNextBtn && liveCarouselTrack) {
+    liveCarouselNextBtn.addEventListener("click", () => {
+      const scrollAmount = Math.max(280, Math.floor(liveCarouselTrack.clientWidth * 0.72));
+      liveCarouselTrack.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    });
+  }
+
+  if (liveCarouselTrack) {
+    liveCarouselTrack.addEventListener("click", async (event) => {
+      const link = event.target.closest("a[data-live-video-id]");
+      if (!link) {
+        return;
+      }
+
+      event.preventDefault();
+      const videoId = String(link.dataset.liveVideoId || "");
+      if (!videoId) {
+        return;
+      }
+
+      await openDetailById(videoId, true);
     });
   }
 
@@ -1407,6 +1448,282 @@ async function fetchRows(queryString, withCount = false) {
   };
 }
 
+async function loadLiveCarousel() {
+  if (!liveCarouselSection || !liveCarouselTrack || !liveCarouselStatus) {
+    return;
+  }
+
+  liveCarouselSection.dataset.hasItems = "false";
+  setLiveCarouselVisibility(true);
+  updateLivePresenceDot(false);
+  liveCarouselStatus.textContent = "Caricamento live...";
+  liveCarouselTrack.innerHTML = "";
+
+  try {
+    const query = new URLSearchParams();
+    query.set("select", "id,title_it,title_en,channel,thumbnail,upload_date,duration,view_count,content_type,live_status,is_live_now,was_live,live_started_at,live_published_at");
+    query.set("content_type", "eq.live");
+    const rows = await fetchAllRows(query, 500);
+    const filteredRows = rows.filter((row) => shouldIncludeInLiveCarousel(row));
+
+    const sortedRows = [...filteredRows].sort((a, b) => {
+      const rankDelta = getLiveCarouselRank(a) - getLiveCarouselRank(b);
+      if (rankDelta !== 0) {
+        return rankDelta;
+      }
+
+      const dateA = getLiveCarouselSortDateMs(a);
+      const dateB = getLiveCarouselSortDateMs(b);
+
+      if (getLiveCarouselRank(a) === 0) {
+        // Live in corso: le piu recenti prima.
+        if (dateB !== dateA) {
+          return dateB - dateA;
+        }
+      } else if (getLiveCarouselRank(a) === 1) {
+        // Programmate: ordine cronologico crescente.
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+      } else if (dateB !== dateA) {
+        return dateB - dateA;
+      }
+
+      return String(a.id || "").localeCompare(String(b.id || ""), "it", { sensitivity: "base" });
+    });
+
+    renderLiveCarousel(sortedRows);
+  } catch (error) {
+    liveCarouselSection.dataset.hasItems = "false";
+    setLiveCarouselVisibility(false);
+  }
+}
+
+function renderLiveCarousel(rows) {
+  if (!liveCarouselSection || !liveCarouselTrack || !liveCarouselStatus) {
+    return;
+  }
+
+  liveCarouselTrack.innerHTML = "";
+  const hasLiveInProgress = Array.isArray(rows) && rows.some((row) => getLiveCarouselRank(row) === 0);
+  updateLivePresenceDot(hasLiveInProgress);
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    liveCarouselSection.dataset.hasItems = "false";
+    setLiveCarouselVisibility(false);
+    liveCarouselStatus.textContent = "Nessuna live in corso o programmata nel futuro.";
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const row of rows) {
+    videoCache.set(String(row.id), row);
+
+    const item = document.createElement("article");
+    item.className = "live-carousel-item";
+
+    const link = document.createElement("a");
+    link.className = "live-carousel-link";
+    link.href = buildVideoPath(row);
+    link.dataset.liveVideoId = String(row.id || "");
+
+    const thumbWrap = document.createElement("span");
+    thumbWrap.className = "live-carousel-thumb-wrap";
+
+    const thumb = document.createElement("img");
+    thumb.className = "live-carousel-thumb";
+    thumb.loading = "lazy";
+    thumb.src = row.thumbnail || "https://placehold.co/640x360/e7eef1/10333a?text=No+Thumbnail";
+    thumb.alt = `Anteprima ${row.title_it || row.title_en || row.id || "Live"}`;
+    thumbWrap.appendChild(thumb);
+
+    const liveBadgeInfo = getLiveBadgeInfo(row);
+    if (liveBadgeInfo) {
+      thumbWrap.appendChild(createLiveBadgeElement(liveBadgeInfo));
+    }
+
+    const content = document.createElement("span");
+    content.className = "live-carousel-content";
+
+    const title = document.createElement("span");
+    title.className = "live-carousel-title";
+    title.textContent = row.title_it || row.title_en || row.id || "Live";
+
+    const meta = document.createElement("span");
+    meta.className = "live-carousel-meta";
+
+    const startsAtText = formatDateTimeValue(row.live_started_at);
+    const publishedAtText = formatDateTimeValue(row.live_published_at);
+    const metaParts = [row.channel || "Canale n/d"];
+
+    if (startsAtText && startsAtText !== "n/d") {
+      metaParts.push(`Inizio ${startsAtText}`);
+    } else if (publishedAtText && publishedAtText !== "n/d") {
+      metaParts.push(`Pubblicata ${publishedAtText}`);
+    }
+
+    meta.textContent = metaParts.join(" • ");
+    content.appendChild(title);
+    content.appendChild(meta);
+
+    link.appendChild(thumbWrap);
+    link.appendChild(content);
+    item.appendChild(link);
+    fragment.appendChild(item);
+  }
+
+  liveCarouselTrack.appendChild(fragment);
+  liveCarouselSection.dataset.hasItems = "true";
+  setLiveCarouselVisibility(true);
+  liveCarouselStatus.textContent = `${rows.length} live in corso o programmate (future)`;
+}
+
+function getLiveCarouselRank(row) {
+  const liveBadgeInfo = getLiveBadgeInfo(row);
+  if (!liveBadgeInfo) {
+    return 3;
+  }
+
+  if (liveBadgeInfo.className === "is-onair") {
+    return 0;
+  }
+
+  if (liveBadgeInfo.className === "is-upcoming") {
+    return 1;
+  }
+
+  return 2;
+}
+
+function getLiveCarouselSortDateMs(row) {
+  const primaryDate = parseDateMaybe(row?.live_started_at) || parseDateMaybe(row?.live_published_at);
+  if (primaryDate instanceof Date) {
+    return primaryDate.getTime();
+  }
+
+  const uploadRaw = String(row?.upload_date || "").trim();
+  if (/^\d{8}$/.test(uploadRaw)) {
+    const uploadParsed = parseDateMaybe(`${uploadRaw.slice(0, 4)}-${uploadRaw.slice(4, 6)}-${uploadRaw.slice(6, 8)}T00:00:00`);
+    if (uploadParsed instanceof Date) {
+      return uploadParsed.getTime();
+    }
+  }
+
+  return 0;
+}
+
+function isLiveCarouselRowInWindow(row) {
+  const referenceDate = getLiveCarouselReferenceDate(row);
+  if (!(referenceDate instanceof Date)) {
+    return false;
+  }
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const lowerBound = new Date(todayStart);
+  lowerBound.setDate(lowerBound.getDate() - 2);
+  const upperBound = new Date(todayStart);
+  upperBound.setDate(upperBound.getDate() + 1);
+
+  const referenceMs = referenceDate.getTime();
+  return referenceMs >= lowerBound.getTime() && referenceMs < upperBound.getTime();
+}
+
+function shouldIncludeInLiveCarousel(row) {
+  const state = getLiveCarouselState(row);
+  const referenceDate = getLiveCarouselReferenceDate(row);
+  const nowMs = Date.now();
+
+  if (state === "onair") {
+    if (!(referenceDate instanceof Date)) {
+      return true;
+    }
+
+    // Live in corso recenti: ora e ultime 48 ore.
+    return referenceDate.getTime() >= nowMs - LIVE_CAROUSEL_ONAIR_LOOKBACK_MS;
+  }
+
+  if (state === "upcoming") {
+    if (!(referenceDate instanceof Date)) {
+      return false;
+    }
+
+    // Programmate: solo eventi futuri (esclude in programma con data passata).
+    return referenceDate.getTime() > nowMs;
+  }
+
+  return false;
+}
+
+function getLiveCarouselState(row) {
+  const liveBadgeInfo = getLiveBadgeInfo(row);
+  if (!liveBadgeInfo) {
+    return "ended";
+  }
+
+  if (liveBadgeInfo.className === "is-onair") {
+    return "onair";
+  }
+
+  if (liveBadgeInfo.className === "is-upcoming") {
+    return "upcoming";
+  }
+
+  return "ended";
+}
+
+function getLiveCarouselReferenceDate(row) {
+  const startedAt = parseDateMaybe(row?.live_started_at);
+  if (startedAt instanceof Date) {
+    return startedAt;
+  }
+
+  const publishedAt = parseDateMaybe(row?.live_published_at);
+  if (publishedAt instanceof Date) {
+    return publishedAt;
+  }
+
+  return null;
+}
+
+function updateLivePresenceDot(hasLiveInProgress) {
+  if (!livePresenceDot) {
+    return;
+  }
+
+  const onAir = Boolean(hasLiveInProgress);
+  livePresenceDot.classList.toggle("is-onair", onAir);
+  livePresenceDot.classList.toggle("is-upcoming", !onAir);
+  livePresenceDot.setAttribute("aria-label", onAir ? "Almeno una live in corso" : "Nessuna live in corso");
+  livePresenceDot.title = onAir ? "Live in corso disponibili" : "Solo live programmate/terminate";
+}
+
+function createLiveBadgeElement(liveBadgeInfo) {
+  const badgeEl = document.createElement("span");
+  badgeEl.className = `live-badge ${liveBadgeInfo.className}`;
+
+  const badgeCopyEl = document.createElement("span");
+  badgeCopyEl.className = "live-badge-copy";
+
+  const badgeMainEl = document.createElement("span");
+  badgeMainEl.className = "live-badge-main";
+  badgeMainEl.textContent = liveBadgeInfo.text;
+  badgeCopyEl.appendChild(badgeMainEl);
+
+  if (liveBadgeInfo.subtext) {
+    const badgeSubEl = document.createElement("span");
+    badgeSubEl.className = "live-badge-sub";
+    badgeSubEl.textContent = liveBadgeInfo.subtext;
+    badgeCopyEl.appendChild(badgeSubEl);
+  }
+
+  badgeEl.appendChild(badgeCopyEl);
+  badgeEl.setAttribute("aria-label", liveBadgeInfo.ariaLabel);
+  badgeEl.title = liveBadgeInfo.ariaLabel;
+  return badgeEl;
+}
+
 function renderResults(rows) {
   const hasRows = Array.isArray(rows) && rows.length > 0;
   if (pagingState.mode === "latest" && hasRows) {
@@ -1460,27 +1777,7 @@ function renderResults(rows) {
 
     const liveBadgeInfo = getLiveBadgeInfo(row);
     if (liveBadgeInfo) {
-      const badgeEl = document.createElement("span");
-      badgeEl.className = `live-badge ${liveBadgeInfo.className}`;
-
-      const badgeCopyEl = document.createElement("span");
-      badgeCopyEl.className = "live-badge-copy";
-
-      const badgeMainEl = document.createElement("span");
-      badgeMainEl.className = "live-badge-main";
-      badgeMainEl.textContent = liveBadgeInfo.text;
-      badgeCopyEl.appendChild(badgeMainEl);
-
-      if (liveBadgeInfo.subtext) {
-        const badgeSubEl = document.createElement("span");
-        badgeSubEl.className = "live-badge-sub";
-        badgeSubEl.textContent = liveBadgeInfo.subtext;
-        badgeCopyEl.appendChild(badgeSubEl);
-      }
-
-      badgeEl.appendChild(badgeCopyEl);
-      badgeEl.setAttribute("aria-label", liveBadgeInfo.ariaLabel);
-      badgeEl.title = liveBadgeInfo.ariaLabel;
+      const badgeEl = createLiveBadgeElement(liveBadgeInfo);
       thumbLink.appendChild(badgeEl);
     }
 
@@ -2197,12 +2494,10 @@ function getLiveBadgeInfo(row) {
   const startsAtMs = startsAt instanceof Date ? startsAt.getTime() : NaN;
   const hasScheduledStart = Number.isFinite(startsAtMs);
   const scheduledStartPassed = hasScheduledStart && startsAtMs <= nowMs;
-  const fallbackOnAirWindowMs = 12 * 60 * 60 * 1000;
+  const withinFrontendOnAirWindow = scheduledStartPassed && nowMs <= startsAtMs + LIVE_FRONTEND_ONAIR_WINDOW_MS;
   const isLikelyLiveInProgress = !isLiveNow
     && !wasLive
-    && scheduledStartPassed
-    && (liveStatus === "is_upcoming" || liveStatus === "")
-    && nowMs - startsAtMs <= fallbackOnAirWindowMs;
+    && withinFrontendOnAirWindow;
 
   if (isLiveNow || isLikelyLiveInProgress) {
     const ariaLabel = isLikelyLiveInProgress
@@ -2392,6 +2687,7 @@ function showHomeView({ showResultsSection = true } = {}) {
   stopDetailPlayback();
   heroSection.classList.remove("hidden");
   searchCard.classList.remove("hidden");
+  setLiveCarouselVisibility(liveCarouselSection?.dataset.hasItems === "true");
   resultsSection.classList.toggle("hidden", !showResultsSection);
   detailView.classList.add("hidden");
 }
@@ -2399,8 +2695,17 @@ function showHomeView({ showResultsSection = true } = {}) {
 function showDetailView() {
   heroSection.classList.add("hidden");
   searchCard.classList.add("hidden");
+  setLiveCarouselVisibility(false);
   resultsSection.classList.add("hidden");
   detailView.classList.remove("hidden");
+}
+
+function setLiveCarouselVisibility(isVisible) {
+  if (!liveCarouselSection) {
+    return;
+  }
+
+  liveCarouselSection.classList.toggle("hidden", !isVisible);
 }
 
 function stopDetailPlayback() {
