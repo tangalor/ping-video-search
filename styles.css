@@ -1903,7 +1903,7 @@ body {
   }
 
   .live-program-link-desktop {
-    display: none;
+    display: inline-flex;
   }
 
   .live-program-link-mobile {
