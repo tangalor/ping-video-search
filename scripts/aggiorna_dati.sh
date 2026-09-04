@@ -27,6 +27,7 @@ YT_CHANNELS_FILE="${YT_CHANNELS_FILE:-$ROOT_DIR/scripts/youtube_channels.txt}"
 YT_CHANNEL_SPECS_FILE="${YT_CHANNEL_SPECS_FILE:-}"
 DEFAULT_CUSTOM_CHANNEL_SPECS_FILE="$ROOT_DIR/scripts/youtube_channel_specs.custom.example.txt"
 YT_CHANNEL_REPORT_DAYS="${YT_CHANNEL_REPORT_DAYS:-3}"
+YT_FORCE_LIVE_CHANNEL_REFRESH="${YT_FORCE_LIVE_CHANNEL_REFRESH:-1}"
 PROGRESS_FD=1
 PROGRESS_IS_TTY=0
 mkdir -p "$BACKUP_ROOT" "dati_grezzi" "letture_pulite" "$LOG_DIR"
@@ -112,6 +113,64 @@ build_channel_targets() {
   printf '%s\n' "$base_url/videos"
   printf '%s\n' "$base_url/shorts"
   printf '%s\n' "$base_url/streams"
+}
+
+build_channel_targets_for_mode() {
+  local mode="$1"
+  local channel_url="$2"
+  local base_url
+  base_url="$(normalize_channel_base_url "$channel_url")"
+
+  if [[ "$mode" == "streams" ]]; then
+    printf '%s\n' "$base_url/streams"
+    return
+  fi
+
+  build_channel_targets "$channel_url"
+}
+
+normalize_and_dedupe_channel_specs() {
+  local spec playlist_end channel_url channel_mode normalized_url existing_depth existing_mode
+  local -a merged_specs=()
+  local -a sorted_specs=()
+  declare -A depth_by_channel=()
+  declare -A mode_by_channel=()
+
+  for spec in "${YT_CHANNEL_SPECS[@]}"; do
+    if [[ ! "$spec" =~ ^[0-9]+\|https://www\.youtube\.com/ ]]; then
+      continue
+    fi
+
+    IFS='|' read -r playlist_end channel_url channel_mode <<< "$spec"
+    channel_mode="${channel_mode:-all}"
+    if [[ "$channel_mode" != "all" && "$channel_mode" != "streams" ]]; then
+      channel_mode="all"
+    fi
+    normalized_url="$(normalize_channel_base_url "$channel_url")"
+    existing_depth="${depth_by_channel[$normalized_url]:-0}"
+    existing_mode="${mode_by_channel[$normalized_url]:-streams}"
+
+    if [ "$playlist_end" -gt "$existing_depth" ]; then
+      depth_by_channel[$normalized_url]="$playlist_end"
+    fi
+
+    if [[ "$channel_mode" == "all" || "$existing_mode" == "all" ]]; then
+      mode_by_channel[$normalized_url]="all"
+    else
+      mode_by_channel[$normalized_url]="streams"
+    fi
+  done
+
+  for channel_url in "${!depth_by_channel[@]}"; do
+    merged_specs+=("${depth_by_channel[$channel_url]}|$channel_url|${mode_by_channel[$channel_url]:-all}")
+  done
+
+  if [ "${#merged_specs[@]}" -gt 0 ]; then
+    mapfile -t sorted_specs < <(printf '%s\n' "${merged_specs[@]}" | sort)
+    YT_CHANNEL_SPECS=("${sorted_specs[@]}")
+  else
+    YT_CHANNEL_SPECS=()
+  fi
 }
 
 PROGRESS_BAR_WIDTH=34
@@ -608,9 +667,28 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
     fi
   done
 
+  if [[ "$YT_FORCE_LIVE_CHANNEL_REFRESH" == "1" ]]; then
+    echo " - aggiungo refresh live minimo per tutti i canali statici (playlist-end=1)"
+    log_msg "[3/7] Aggiunta refresh live minimo da $YT_CHANNELS_FILE"
+
+    while IFS= read -r _line; do
+      clean_line="$(printf '%s' "${_line%%#*}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+      if [[ -z "$clean_line" ]]; then
+        continue
+      fi
+
+      if [[ "$clean_line" =~ ^https://www\.youtube\.com/ ]]; then
+        YT_CHANNEL_SPECS+=("1|$clean_line|streams")
+      fi
+    done < "$YT_CHANNELS_FILE"
+
+  fi
+
+  normalize_and_dedupe_channel_specs
+
   if [ "${#YT_CHANNEL_SPECS[@]}" -gt 0 ]; then
-    echo " - canali selezionati (numero|url):"
-    log_msg "[3/7] Elenco canali selezionati (numero|url):"
+    echo " - canali selezionati (numero|url|mode), inclusi refresh live:"
+    log_msg "[3/7] Elenco finale canali selezionati (numero|url|mode):"
     for spec in "${YT_CHANNEL_SPECS[@]}"; do
       echo "   $spec"
       log_msg "[3/7]   $spec"
@@ -626,7 +704,8 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
 
   for index in "${!YT_CHANNEL_SPECS[@]}"; do
     spec="${YT_CHANNEL_SPECS[$index]}"
-    IFS='|' read -r playlist_end channel_url <<< "$spec"
+    IFS='|' read -r playlist_end channel_url channel_mode <<< "$spec"
+    channel_mode="${channel_mode:-all}"
     channel_position=$((index + 1))
 
     while IFS= read -r channel_target; do
@@ -634,7 +713,7 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
         continue
       fi
       run_yt_channel_with_progress "$playlist_end" "$channel_target" "$channel_position" "${#YT_CHANNEL_SPECS[@]}"
-    done < <(build_channel_targets "$channel_url")
+    done < <(build_channel_targets_for_mode "$channel_mode" "$channel_url")
   done
 
   if [ "$YT_PANEL_RENDERED" -eq 1 ]; then

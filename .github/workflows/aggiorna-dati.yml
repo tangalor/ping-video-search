@@ -18,9 +18,21 @@ on:
         required: false
         type: boolean
         default: false
+      force_live_channel_refresh:
+        description: "Forza refresh minimo live per tutti i canali statici (anche se filtrati dal report RSS)"
+        required: false
+        type: boolean
+        default: true
   schedule:
-    # Ogni giorno alle 04:24, 08:24, 12:24, 16:24 e 20:24 (UTC).
-    - cron: "24 4,8,12,16,20 * * *"
+    # Orari richiesti in Italia (CEST): 06:24, 10:24, 12:43, 15:12, 16:34, 18:47, 23:14.
+    # GitHub Actions usa UTC: questi cron corrispondono agli orari sopra durante CEST.
+    - cron: "24 4 * * *"
+    - cron: "24 8 * * *"
+    - cron: "43 10 * * *"
+    - cron: "12 13 * * *"
+    - cron: "34 14 * * *"
+    - cron: "47 16 * * *"
+    - cron: "14 21 * * *"
 
 jobs:
   aggiorna-dati:
@@ -186,6 +198,7 @@ jobs:
           SKIP_DOWNLOAD_INPUT: ${{ github.event.inputs.skip_download }}
           YT_CHANNEL_REPORT_DAYS: ${{ github.event.inputs.channel_report_days || '3' }}
           USE_CUSTOM_CHANNEL_SPECS: ${{ github.event.inputs.use_custom_channel_specs || 'false' }}
+          YT_FORCE_LIVE_CHANNEL_REFRESH: ${{ github.event.inputs.force_live_channel_refresh || 'true' }}
           DISABLE_PROGRESS_BARS: "1"
           YTDLP_EXTRACTOR_ARGS: "youtube:player_client=android,mweb"
           YTDLP_SLEEP_REQUESTS: "1.50"
