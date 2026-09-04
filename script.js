@@ -3429,7 +3429,7 @@ function showHomeView({ showResultsSection = true } = {}) {
   stopDetailPlayback();
   heroSection.classList.remove("hidden");
   searchCard.classList.remove("hidden");
-  setLiveCarouselVisibility(liveCarouselSection?.dataset.hasItems === "true" && isHomePath(window.location.pathname));
+  setLiveCarouselVisibility(liveCarouselSection?.dataset.hasItems === "true");
   resultsSection.classList.toggle("hidden", !showResultsSection);
   detailView.classList.add("hidden");
   if (liveProgramView) {
