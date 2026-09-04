@@ -1265,18 +1265,36 @@ body {
 
 .detail-head {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.6rem;
   margin-bottom: 0.7rem;
 }
 
 .detail-site-title {
+  order: 2;
   margin: 0;
+  margin-left: auto;
   font-family: "DM Serif Display", Georgia, serif;
   font-size: clamp(1.3rem, 3vw, 1.8rem);
   letter-spacing: 0.02em;
+}
+
+.back-home-btn {
+  order: 1;
+  background: #111;
+  border-color: #111;
+  color: #fff;
+}
+
+.back-home-btn:hover {
+  background: #2a2a2a;
+  border-color: #2a2a2a;
+}
+
+.back-home-btn:focus-visible {
+  outline: 3px solid rgba(244, 197, 49, 0.65);
+  outline-offset: 2px;
 }
 
 .detail-card {
@@ -1952,12 +1970,46 @@ body {
   }
 
   .detail-head {
+    position: relative;
     align-items: center;
+    justify-content: center;
     text-align: center;
+    min-height: 2.4rem;
   }
 
   .detail-site-title {
-    width: auto;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .back-home-btn {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 2.15rem;
+    height: 2.15rem;
+    border-radius: 999px;
+    padding: 0;
+    font-size: 0;
+    line-height: 0;
+    overflow: hidden;
+    text-indent: -9999px;
+    white-space: nowrap;
+  }
+
+  .back-home-btn::before {
+    content: "\2190";
+    position: absolute;
+    inset: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 900;
+    line-height: 1;
+    text-indent: 0;
   }
 
   .page {
