@@ -698,6 +698,12 @@ body {
   gap: 0.65rem;
 }
 
+.live-carousel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
 .live-carousel-head h2 {
   margin: 0;
   font-size: clamp(1.03rem, 1.8vw, 1.25rem);
@@ -762,6 +768,33 @@ body {
   color: #586773;
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.live-program-link {
+  margin-top: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-2);
+  font-size: 0.86rem;
+  font-weight: 800;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+}
+
+.live-program-link-mobile {
+  display: none;
+}
+
+.live-program-link:hover {
+  color: #125e68;
+}
+
+.live-program-link:focus-visible {
+  outline: 2px solid rgba(23, 126, 137, 0.35);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .live-carousel-track {
@@ -1188,6 +1221,20 @@ body {
   margin: 0;
 }
 
+.live-program-card .results-list {
+  margin-top: 0.68rem;
+}
+
+.live-program-divider {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 1.35rem 0 1.1rem;
+}
+
+.live-program-ended-title {
+  margin-top: 0;
+}
+
 .player-wrap {
   margin-top: 0.9rem;
 }
@@ -1604,6 +1651,12 @@ body {
     align-items: flex-start;
   }
 
+  .live-carousel-actions {
+    width: auto;
+    justify-content: flex-end;
+    gap: 0.45rem;
+  }
+
   .live-carousel-head h2 {
     font-size: 1.02rem;
   }
@@ -1615,6 +1668,21 @@ body {
 
   .live-carousel-status {
     font-size: 0.79rem;
+  }
+
+  .live-program-link {
+    margin-top: 0;
+    font-size: 0.84rem;
+    text-align: left;
+  }
+
+  .live-program-link-desktop {
+    display: none;
+  }
+
+  .live-program-link-mobile {
+    display: inline-flex;
+    margin-top: 0.35rem;
   }
 
   .live-carousel-track {
@@ -1800,5 +1868,9 @@ body {
   .detail-data dd:last-of-type {
     border-bottom: 0;
     padding-bottom: 0;
+  }
+
+  .live-program-ended-title {
+    margin-top: 0;
   }
 }
