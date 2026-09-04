@@ -54,7 +54,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=30" />
+  <link rel="stylesheet" href="styles.css?v=32" />
 </head>
 <body>
   <div class="bg-shape bg-shape-a"></div>
@@ -221,9 +221,11 @@
 
     <section id="live-carousel-section" class="live-carousel-section" aria-label="Live in evidenza">
       <div class="live-carousel-head">
-        <h2 class="live-carousel-title-row">Live in evidenza <span id="live-presence-dot" class="live-presence-dot is-upcoming" aria-hidden="true"></span></h2>
+        <h2 class="live-carousel-title-row"><a id="open-live-program-title-link" class="live-carousel-title-link" href="/live/programma">Live in evidenza</a> <span id="live-presence-dot" class="live-presence-dot is-upcoming" aria-hidden="true"></span></h2>
         <div class="live-carousel-actions">
-          <button id="open-live-program-btn-desktop" class="live-program-link live-program-link-desktop" type="button">Vedi programma completo LIVE</button>
+          <button id="open-live-program-btn-desktop" class="live-carousel-nav-btn live-program-open-table-btn live-program-link-desktop" type="button" aria-label="Apri tabella riassuntiva delle live" title="Apri tabella riassuntiva delle live">
+            <span class="live-table-icon" aria-hidden="true"></span>
+          </button>
           <div class="live-carousel-nav" aria-label="Scorri live">
             <button id="live-carousel-prev" class="live-carousel-nav-btn" type="button" aria-label="Scorri live indietro">←</button>
             <button id="live-carousel-next" class="live-carousel-nav-btn" type="button" aria-label="Scorri live avanti">→</button>
@@ -231,7 +233,6 @@
         </div>
       </div>
       <p id="live-carousel-status" class="live-carousel-status" aria-live="polite">Caricamento live...</p>
-      <button id="open-live-program-btn-mobile" class="live-program-link live-program-link-mobile" type="button">Vedi programma completo LIVE</button>
       <div id="live-carousel-track" class="live-carousel-track"></div>
     </section>
 
@@ -326,19 +327,52 @@
       </div>
 
       <article class="detail-card live-program-card">
-        <h2>Live in programma</h2>
-        <p id="live-program-meta" class="meta">Caricamento programma live...</p>
-        <ul id="live-program-list" class="results-list"></ul>
+        <h2 class="live-program-title-row">Live in evidenza <span id="live-program-presence-dot" class="live-presence-dot is-upcoming" aria-hidden="true"></span></h2>
 
-        <hr class="live-program-divider" />
-        <h3 class="live-program-ended-title">Live terminate</h3>
-        <p id="live-ended-meta" class="meta">Caricamento live terminate...</p>
-        <ul id="live-ended-list" class="results-list"></ul>
-        <nav id="live-ended-pagination" class="pagination hidden" aria-label="Paginazione live terminate">
-          <button id="live-ended-prev" class="btn-secondary" type="button">Indietro</button>
-          <div id="live-ended-page-numbers" class="page-numbers"></div>
-          <button id="live-ended-next" class="btn-secondary" type="button">Avanti</button>
-        </nav>
+        <div class="live-program-tabs" role="tablist" aria-label="Sezioni live">
+          <button id="live-tab-btn-program" class="live-tab-btn is-active" type="button" role="tab" aria-selected="true" aria-controls="live-tab-program" data-live-tab="program">Live in corso e programmate</button>
+          <button id="live-tab-btn-ended" class="live-tab-btn" type="button" role="tab" aria-selected="false" aria-controls="live-tab-ended" data-live-tab="ended">Live terminate</button>
+          <button id="live-tab-btn-all" class="live-tab-btn" type="button" role="tab" aria-selected="false" aria-controls="live-tab-all" data-live-tab="all">Tabella riassuntiva delle live</button>
+        </div>
+
+        <section id="live-tab-program" class="live-tab-panel" role="tabpanel" aria-labelledby="live-tab-btn-program">
+          <p id="live-program-meta" class="meta">Caricamento programma live...</p>
+          <ul id="live-program-list" class="results-list"></ul>
+        </section>
+
+        <section id="live-tab-ended" class="live-tab-panel hidden" role="tabpanel" aria-labelledby="live-tab-btn-ended">
+          <p id="live-ended-meta" class="meta">Caricamento live terminate...</p>
+          <ul id="live-ended-list" class="results-list"></ul>
+          <nav id="live-ended-pagination" class="pagination hidden" aria-label="Paginazione live terminate">
+            <button id="live-ended-prev" class="btn-secondary" type="button">Indietro</button>
+            <div id="live-ended-page-numbers" class="page-numbers"></div>
+            <button id="live-ended-next" class="btn-secondary" type="button">Avanti</button>
+          </nav>
+        </section>
+
+        <section id="live-tab-all" class="live-tab-panel hidden" role="tabpanel" aria-labelledby="live-tab-btn-all">
+          <p id="live-all-meta" class="meta">Caricamento tabella live...</p>
+          <div class="live-table-wrap">
+            <table id="live-all-table" class="live-all-table">
+              <thead>
+                <tr>
+                  <th>Titolo</th>
+                  <th>Canale</th>
+                  <th>
+                    <button id="live-sort-start" class="live-sort-btn" type="button" data-sort-key="start" data-sort-default="asc">Data e ora inizio</button>
+                  </th>
+                  <th>
+                    <button id="live-sort-status" class="live-sort-btn" type="button" data-sort-key="status" data-sort-default="asc">Stato</button>
+                  </th>
+                  <th>
+                    <button id="live-sort-marker" class="live-sort-btn" type="button" data-sort-key="marker" data-sort-default="asc">Evidenza</button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="live-all-table-body"></tbody>
+            </table>
+          </div>
+        </section>
       </article>
     </section>
   </main>
@@ -360,6 +394,6 @@
   </template>
 
   <script src="config.local.js?v=5"></script>
-  <script src="script.js?v=51"></script>
+  <script src="script.js?v=57"></script>
 </body>
 </html>

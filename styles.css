@@ -752,6 +752,23 @@ body {
   gap: 0.42rem;
 }
 
+.live-carousel-title-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+  text-decoration-thickness: 2px;
+}
+
+.live-carousel-title-link:hover {
+  color: #125e68;
+}
+
+.live-carousel-title-link:focus-visible {
+  outline: 2px solid rgba(23, 126, 137, 0.35);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .live-presence-dot {
   width: 0.62rem;
   height: 0.62rem;
@@ -832,6 +849,26 @@ body {
   outline: 2px solid rgba(23, 126, 137, 0.35);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+.live-program-open-table-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-table-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  display: inline-block;
+  border: 1.8px solid currentColor;
+  border-radius: 3px;
+  background-image:
+    linear-gradient(to right, transparent 31%, currentColor 31%, currentColor 37%, transparent 37%, transparent 63%, currentColor 63%, currentColor 69%, transparent 69%),
+    linear-gradient(to bottom, transparent 31%, currentColor 31%, currentColor 37%, transparent 37%, transparent 63%, currentColor 63%, currentColor 69%, transparent 69%);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
 }
 
 .live-carousel-track {
@@ -1254,12 +1291,46 @@ body {
   line-height: 1.25;
 }
 
+.live-program-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
 .detail-card h3 {
   margin: 0;
 }
 
 .live-program-card .results-list {
   margin-top: 0.68rem;
+}
+
+.live-program-tabs {
+  margin-top: 0.8rem;
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.live-tab-btn {
+  border: 1px solid rgba(23, 126, 137, 0.28);
+  background: #fff;
+  color: #10333a;
+  border-radius: 999px;
+  padding: 0.45rem 0.78rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.live-tab-btn.is-active {
+  background: #177e89;
+  border-color: #177e89;
+  color: #fff;
+}
+
+.live-tab-panel {
+  margin-top: 0.75rem;
 }
 
 .live-program-divider {
@@ -1270,6 +1341,103 @@ body {
 
 .live-program-ended-title {
   margin-top: 0;
+}
+
+.live-table-wrap {
+  margin-top: 0.55rem;
+  overflow-x: auto;
+}
+
+.live-all-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.live-all-table th,
+.live-all-table td {
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  padding: 0.58rem 0.5rem;
+  font-size: 0.85rem;
+  vertical-align: top;
+}
+
+.live-all-table th {
+  color: #304650;
+  font-weight: 800;
+  background: rgba(235, 244, 247, 0.56);
+}
+
+.live-sort-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.live-table-title-link {
+  color: #10355a;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.live-table-title-link:hover {
+  text-decoration: underline;
+}
+
+.live-time-marker {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(23, 126, 137, 0.24);
+  background: rgba(223, 246, 248, 0.65);
+  color: #0f616a;
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
+.live-status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.16rem 0.52rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.live-status-badge.is-onair {
+  color: #ffffff;
+  background: linear-gradient(120deg, rgba(225, 19, 44, 0.95) 0%, rgba(255, 82, 40, 0.95) 100%);
+  border-color: rgba(255, 230, 230, 0.9);
+}
+
+.live-status-badge.is-upcoming {
+  color: #072340;
+  background: linear-gradient(120deg, rgba(125, 206, 255, 0.95) 0%, rgba(169, 232, 255, 0.95) 100%);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.live-status-badge.is-ended {
+  color: #14383f;
+  background: linear-gradient(120deg, rgba(198, 227, 231, 0.94) 0%, rgba(221, 239, 242, 0.94) 100%);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.live-table-loader-cell,
+.live-table-empty-cell {
+  color: #5f6e79;
+  padding: 0.8rem 0.5rem;
+  font-weight: 700;
 }
 
 .player-wrap {
@@ -1719,6 +1887,21 @@ body {
     text-align: left;
   }
 
+  .live-program-tabs {
+    gap: 0.4rem;
+  }
+
+  .live-tab-btn {
+    font-size: 0.79rem;
+    padding: 0.42rem 0.68rem;
+  }
+
+  .live-all-table th,
+  .live-all-table td {
+    font-size: 0.8rem;
+    padding: 0.5rem 0.42rem;
+  }
+
   .live-program-link-desktop {
     display: none;
   }
@@ -1726,6 +1909,12 @@ body {
   .live-program-link-mobile {
     display: inline-flex;
     margin-top: 0.35rem;
+  }
+
+  .live-program-open-table-btn.live-program-link-mobile {
+    width: 2.15rem;
+    height: 2.15rem;
+    padding: 0;
   }
 
   .live-carousel-track {

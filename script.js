@@ -19,7 +19,9 @@ const liveCarouselTrack = document.getElementById("live-carousel-track");
 const liveCarouselStatus = document.getElementById("live-carousel-status");
 const liveCarouselPrevBtn = document.getElementById("live-carousel-prev");
 const liveCarouselNextBtn = document.getElementById("live-carousel-next");
+const openLiveProgramTitleLink = document.getElementById("open-live-program-title-link");
 const livePresenceDot = document.getElementById("live-presence-dot");
+const liveProgramPresenceDot = document.getElementById("live-program-presence-dot");
 const openLiveProgramDesktopBtn = document.getElementById("open-live-program-btn-desktop");
 const openLiveProgramMobileBtn = document.getElementById("open-live-program-btn-mobile");
 const channelOptionsEl = document.getElementById("channel-options");
@@ -64,7 +66,15 @@ const liveProgramMeta = document.getElementById("live-program-meta");
 const liveProgramList = document.getElementById("live-program-list");
 const liveEndedMeta = document.getElementById("live-ended-meta");
 const liveEndedList = document.getElementById("live-ended-list");
-const liveProgramEndedTitle = document.querySelector(".live-program-ended-title");
+const liveTabButtons = document.querySelectorAll("button[data-live-tab]");
+const liveTabProgramPanel = document.getElementById("live-tab-program");
+const liveTabEndedPanel = document.getElementById("live-tab-ended");
+const liveTabAllPanel = document.getElementById("live-tab-all");
+const liveAllMeta = document.getElementById("live-all-meta");
+const liveAllTableBody = document.getElementById("live-all-table-body");
+const liveSortStartBtn = document.getElementById("live-sort-start");
+const liveSortStatusBtn = document.getElementById("live-sort-status");
+const liveSortMarkerBtn = document.getElementById("live-sort-marker");
 const liveEndedPaginationEl = document.getElementById("live-ended-pagination");
 const liveEndedPrevBtn = document.getElementById("live-ended-prev");
 const liveEndedNextBtn = document.getElementById("live-ended-next");
@@ -124,6 +134,16 @@ const liveEndedPagingState = {
   totalItems: 0,
   totalPages: 1,
   pageSize: 10
+};
+
+const livePageViewState = {
+  activeTab: "program"
+};
+
+const liveAllTableState = {
+  rows: [],
+  sortKey: "start",
+  sortDir: "asc"
 };
 
 const homeCountLoadingElements = [
@@ -470,7 +490,14 @@ function bindEvents() {
   const liveProgramButtons = [openLiveProgramDesktopBtn, openLiveProgramMobileBtn].filter(Boolean);
   for (const button of liveProgramButtons) {
     button.addEventListener("click", async () => {
-      await openLiveProgramPage(true);
+      await openLiveProgramPage(true, "all");
+    });
+  }
+
+  if (openLiveProgramTitleLink) {
+    openLiveProgramTitleLink.addEventListener("click", async (event) => {
+      event.preventDefault();
+      await openLiveProgramPage(true, "program");
     });
   }
 
@@ -594,6 +621,18 @@ function bindEvents() {
     });
   }
 
+  if (liveAllTableBody) {
+    liveAllTableBody.addEventListener("click", async (event) => {
+      const link = event.target.closest("a[data-video-id]");
+      if (!link) {
+        return;
+      }
+
+      event.preventDefault();
+      await openDetailById(String(link.dataset.videoId || ""), true);
+    });
+  }
+
   if (liveEndedList) {
     liveEndedList.addEventListener("click", async (event) => {
       const link = event.target.closest("a[data-video-id]");
@@ -623,6 +662,31 @@ function bindEvents() {
       }
       renderLiveEndedPage(liveEndedPagingState.currentPage + 1);
       scrollToLiveEndedTitle();
+    });
+  }
+
+  for (const tabButton of liveTabButtons) {
+    tabButton.addEventListener("click", () => {
+      const nextTab = String(tabButton.dataset.liveTab || "program");
+      setActiveLiveProgramTab(nextTab);
+    });
+  }
+
+  if (liveSortStartBtn) {
+    liveSortStartBtn.addEventListener("click", () => {
+      setLiveAllTableSort("start");
+    });
+  }
+
+  if (liveSortStatusBtn) {
+    liveSortStatusBtn.addEventListener("click", () => {
+      setLiveAllTableSort("status");
+    });
+  }
+
+  if (liveSortMarkerBtn) {
+    liveSortMarkerBtn.addEventListener("click", () => {
+      setLiveAllTableSort("marker");
     });
   }
 
@@ -1606,8 +1670,9 @@ async function fetchLiveRows() {
   return liveRowsCache;
 }
 
-async function openLiveProgramPage(pushHistory) {
+async function openLiveProgramPage(pushHistory, initialTab = "program") {
   showLiveProgramView();
+  setActiveLiveProgramTab(initialTab, false);
 
   if (liveProgramMeta) {
     liveProgramMeta.textContent = "Caricamento programma live...";
@@ -1621,12 +1686,18 @@ async function openLiveProgramPage(pushHistory) {
   if (liveEndedList) {
     renderListLoader(liveEndedList, "Caricamento live terminate...");
   }
+  if (liveAllMeta) {
+    liveAllMeta.textContent = "Caricamento tabella live...";
+  }
+  if (liveAllTableBody) {
+    renderLiveAllTableLoader();
+  }
   if (liveEndedPaginationEl) {
     liveEndedPaginationEl.classList.add("hidden");
   }
 
   if (pushHistory) {
-    window.history.pushState({ view: "live-program" }, "", buildAppPath("live-programma"));
+    window.history.pushState({ view: "live-program" }, "", buildAppPath("live/programma"));
   }
 
   try {
@@ -1645,6 +1716,12 @@ async function openLiveProgramPage(pushHistory) {
     if (liveEndedList) {
       liveEndedList.innerHTML = "";
     }
+    if (liveAllMeta) {
+      liveAllMeta.textContent = "Errore nel caricamento della tabella live.";
+    }
+    if (liveAllTableBody) {
+      liveAllTableBody.innerHTML = "";
+    }
   }
 }
 
@@ -1654,6 +1731,8 @@ function renderLiveProgramLists(rows) {
   }
 
   const safeRows = Array.isArray(rows) ? rows : [];
+  const hasLiveInProgress = safeRows.some((row) => getLiveCarouselRank(row) === 0);
+  updateLivePresenceDot(hasLiveInProgress);
   const inProgramRows = safeRows.filter((row) => shouldIncludeInLiveCarousel(row));
   const endedRows = safeRows.filter((row) => shouldIncludeAsEndedLiveProgramRow(row));
 
@@ -1676,6 +1755,8 @@ function renderLiveProgramLists(rows) {
   renderLiveProgramListToContainer(liveProgramList, sortedInProgramRows);
   setupLiveEndedPagination(sortedEndedRows);
   renderLiveEndedPage(1);
+  setupLiveAllTable(safeRows);
+  renderLiveAllTable();
 
   if (liveProgramMeta) {
     liveProgramMeta.textContent = sortedInProgramRows.length
@@ -1685,9 +1766,263 @@ function renderLiveProgramLists(rows) {
 
   if (liveEndedMeta) {
     liveEndedMeta.textContent = sortedEndedRows.length
-      ? `${sortedEndedRows.length} live terminate recenti`
-      : "Nessuna live terminata recente.";
+      ? `${sortedEndedRows.length} live terminate`
+      : "Nessuna live terminata.";
   }
+
+  if (liveAllMeta) {
+    liveAllMeta.textContent = safeRows.length
+      ? `${liveAllTableState.rows.length} live in tabella (da oggi in avanti)`
+      : "Nessuna live disponibile in tabella.";
+  }
+}
+
+function setupLiveAllTable(rows) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const todayStart = getTodayStartDate();
+
+  liveAllTableState.rows = safeRows.filter((row) => {
+    const referenceDate = getLiveCarouselReferenceDate(row);
+    if (!(referenceDate instanceof Date) || Number.isNaN(referenceDate.getTime())) {
+      return false;
+    }
+
+    return referenceDate.getTime() >= todayStart.getTime();
+  });
+}
+
+function setLiveAllTableSort(sortKey) {
+  if (liveAllTableState.sortKey === sortKey) {
+    liveAllTableState.sortDir = liveAllTableState.sortDir === "asc" ? "desc" : "asc";
+  } else {
+    liveAllTableState.sortKey = sortKey;
+    liveAllTableState.sortDir = "asc";
+  }
+
+  renderLiveAllTable();
+  updateLiveSortButtonLabels();
+}
+
+function updateLiveSortButtonLabels() {
+  const applyLabel = (button, key, baseLabel) => {
+    if (!button) {
+      return;
+    }
+
+    const isActive = liveAllTableState.sortKey === key;
+    const arrow = isActive ? (liveAllTableState.sortDir === "asc" ? " ↑" : " ↓") : "";
+    button.textContent = `${baseLabel}${arrow}`;
+  };
+
+  applyLabel(liveSortStartBtn, "start", "Data e ora inizio");
+  applyLabel(liveSortStatusBtn, "status", "Stato");
+  applyLabel(liveSortMarkerBtn, "marker", "Evidenza");
+}
+
+function renderLiveAllTableLoader() {
+  if (!liveAllTableBody) {
+    return;
+  }
+
+  liveAllTableBody.innerHTML = "";
+  const row = document.createElement("tr");
+  const cell = document.createElement("td");
+  cell.colSpan = 5;
+  cell.className = "live-table-loader-cell";
+  cell.textContent = "Caricamento tabella live...";
+  row.appendChild(cell);
+  liveAllTableBody.appendChild(row);
+}
+
+function renderLiveAllTable() {
+  if (!liveAllTableBody) {
+    return;
+  }
+
+  liveAllTableBody.innerHTML = "";
+  const rows = [...liveAllTableState.rows].sort((a, b) => compareLiveTableRows(a, b));
+
+  if (rows.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 5;
+    cell.className = "live-table-empty-cell";
+    cell.textContent = "Nessun dato live disponibile.";
+    row.appendChild(cell);
+    liveAllTableBody.appendChild(row);
+    updateLiveSortButtonLabels();
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const item of rows) {
+    fragment.appendChild(createLiveAllTableRow(item));
+  }
+  liveAllTableBody.appendChild(fragment);
+  updateLiveSortButtonLabels();
+}
+
+function compareLiveTableRows(a, b) {
+  const direction = liveAllTableState.sortDir === "asc" ? 1 : -1;
+
+  if (liveAllTableState.sortKey === "marker") {
+    const markerDelta = (getLiveTimeMarkerRank(a) - getLiveTimeMarkerRank(b)) * direction;
+    if (markerDelta !== 0) {
+      return markerDelta;
+    }
+  }
+
+  if (liveAllTableState.sortKey === "status") {
+    const rankDelta = (getLiveTableStatusRank(a) - getLiveTableStatusRank(b)) * direction;
+    if (rankDelta !== 0) {
+      return rankDelta;
+    }
+  }
+
+  const dateDelta = (getLiveCarouselSortDateMs(a) - getLiveCarouselSortDateMs(b)) * direction;
+  if (dateDelta !== 0) {
+    return dateDelta;
+  }
+
+  return String(a.id || "").localeCompare(String(b.id || ""), "it", { sensitivity: "base" });
+}
+
+function createLiveAllTableRow(row) {
+  videoCache.set(String(row.id), row);
+
+  const tr = document.createElement("tr");
+
+  const titleCell = document.createElement("td");
+  const titleLink = document.createElement("a");
+  titleLink.href = buildVideoPath(row);
+  titleLink.dataset.videoId = String(row.id || "");
+  titleLink.className = "live-table-title-link";
+  titleLink.textContent = row.title_it || row.title_en || row.id || "Live";
+  titleCell.appendChild(titleLink);
+
+  const channelCell = document.createElement("td");
+  channelCell.textContent = row.channel || "Canale n/d";
+
+  const startCell = document.createElement("td");
+  const referenceDate = getLiveCarouselReferenceDate(row);
+  startCell.textContent = referenceDate ? formatLiveStartDateTime(referenceDate) : "n/d";
+
+  const statusCell = document.createElement("td");
+  const statusBadge = document.createElement("span");
+  statusBadge.className = `live-status-badge ${getLiveTableStatusBadgeClass(row)}`;
+  statusBadge.textContent = getLiveTableStatusLabel(row);
+  statusCell.appendChild(statusBadge);
+
+  const markerCell = document.createElement("td");
+  const markerText = getLiveTimeMarkerLabel(row, referenceDate);
+  if (markerText) {
+    const badge = document.createElement("span");
+    badge.className = "live-time-marker";
+    badge.textContent = markerText;
+    markerCell.appendChild(badge);
+  }
+
+  tr.appendChild(titleCell);
+  tr.appendChild(channelCell);
+  tr.appendChild(startCell);
+  tr.appendChild(statusCell);
+  tr.appendChild(markerCell);
+  return tr;
+}
+
+function getLiveTableStatusRank(row) {
+  const state = getLiveTableEffectiveState(row);
+  if (state === "onair") {
+    return 0;
+  }
+  if (state === "upcoming") {
+    return 1;
+  }
+  return 2;
+}
+
+function getLiveTableStatusLabel(row) {
+  const state = getLiveTableEffectiveState(row);
+  if (state === "onair") {
+    return "live";
+  }
+  if (state === "upcoming") {
+    return "in programma";
+  }
+  return "terminato";
+}
+
+function getLiveTableStatusBadgeClass(row) {
+  const state = getLiveTableEffectiveState(row);
+  if (state === "onair") {
+    return "is-onair";
+  }
+  if (state === "upcoming") {
+    return "is-upcoming";
+  }
+  return "is-ended";
+}
+
+function getLiveTimeMarkerLabel(row, referenceDate) {
+  if (!(referenceDate instanceof Date) || Number.isNaN(referenceDate.getTime())) {
+    return "";
+  }
+
+  const today = getTodayStartDate();
+  const target = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
+  const diffDays = Math.round((target.getTime() - today.getTime()) / 86400000);
+  const state = getLiveTableEffectiveState(row);
+
+  if (state === "ended") {
+    return diffDays === 0 ? "oggi" : "";
+  }
+
+  if (diffDays === 0) {
+    return "oggi";
+  }
+  if (diffDays === 1) {
+    return "domani";
+  }
+  if (diffDays > 1 && diffDays <= 7) {
+    return "prossima settimana";
+  }
+  return "";
+}
+
+function getLiveTableEffectiveState(row) {
+  const startedAt = parseDateMaybe(row?.live_started_at);
+  if (startedAt instanceof Date && !Number.isNaN(startedAt.getTime())) {
+    const elapsedMs = Date.now() - startedAt.getTime();
+    if (elapsedMs > LIVE_FRONTEND_ONAIR_WINDOW_MS) {
+      return "ended";
+    }
+  }
+
+  return getLiveCarouselState(row);
+}
+
+function getLiveTimeMarkerRank(row) {
+  const referenceDate = getLiveCarouselReferenceDate(row);
+  if (!(referenceDate instanceof Date) || Number.isNaN(referenceDate.getTime())) {
+    return 99;
+  }
+
+  const marker = getLiveTimeMarkerLabel(row, referenceDate);
+  if (marker === "oggi") {
+    return 0;
+  }
+  if (marker === "domani") {
+    return 1;
+  }
+  if (marker === "prossima settimana") {
+    return 2;
+  }
+  return 3;
+}
+
+function getTodayStartDate() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
 function setupLiveEndedPagination(rows) {
@@ -1765,8 +2100,8 @@ function renderLiveEndedPagination() {
 }
 
 function scrollToLiveEndedTitle() {
-  if (liveProgramEndedTitle) {
-    liveProgramEndedTitle.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (liveTabEndedPanel) {
+    liveTabEndedPanel.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
 
@@ -1853,18 +2188,47 @@ function createLiveProgramResultItem(row) {
 
 function shouldIncludeAsEndedLiveProgramRow(row) {
   const state = getLiveCarouselState(row);
-  if (state !== "ended") {
-    return false;
+  return state === "ended";
+}
+
+function setActiveLiveProgramTab(tabKey, smoothScroll = true) {
+  const allowed = new Set(["program", "ended", "all"]);
+  const nextTab = allowed.has(tabKey) ? tabKey : "program";
+  livePageViewState.activeTab = nextTab;
+
+  const isProgram = nextTab === "program";
+  const isEnded = nextTab === "ended";
+  const isAll = nextTab === "all";
+
+  if (liveTabProgramPanel) {
+    liveTabProgramPanel.classList.toggle("hidden", !isProgram);
+  }
+  if (liveTabEndedPanel) {
+    liveTabEndedPanel.classList.toggle("hidden", !isEnded);
+  }
+  if (liveTabAllPanel) {
+    liveTabAllPanel.classList.toggle("hidden", !isAll);
   }
 
-  const referenceDate = getLiveCarouselReferenceDate(row);
-  if (!(referenceDate instanceof Date)) {
-    return false;
+  for (const button of liveTabButtons) {
+    const active = button.dataset.liveTab === nextTab;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
   }
 
-  const nowMs = Date.now();
-  const referenceMs = referenceDate.getTime();
-  return referenceMs <= nowMs && referenceMs >= nowMs - LIVE_CAROUSEL_ONAIR_LOOKBACK_MS;
+  if (isEnded) {
+    renderLiveEndedPagination();
+  } else if (liveEndedPaginationEl) {
+    liveEndedPaginationEl.classList.add("hidden");
+  }
+
+  if (isAll) {
+    renderLiveAllTable();
+  }
+
+  if (smoothScroll && liveProgramView) {
+    liveProgramView.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function renderLiveCarousel(rows) {
@@ -2056,15 +2420,20 @@ function getLiveCarouselReferenceDate(row) {
 }
 
 function updateLivePresenceDot(hasLiveInProgress) {
-  if (!livePresenceDot) {
+  const onAir = Boolean(hasLiveInProgress);
+  applyLivePresenceDotState(livePresenceDot, onAir);
+  applyLivePresenceDotState(liveProgramPresenceDot, onAir);
+}
+
+function applyLivePresenceDotState(dotEl, onAir) {
+  if (!dotEl) {
     return;
   }
 
-  const onAir = Boolean(hasLiveInProgress);
-  livePresenceDot.classList.toggle("is-onair", onAir);
-  livePresenceDot.classList.toggle("is-upcoming", !onAir);
-  livePresenceDot.setAttribute("aria-label", onAir ? "Almeno una live in corso" : "Nessuna live in corso");
-  livePresenceDot.title = onAir ? "Live in corso disponibili" : "Solo live programmate/terminate";
+  dotEl.classList.toggle("is-onair", onAir);
+  dotEl.classList.toggle("is-upcoming", !onAir);
+  dotEl.setAttribute("aria-label", onAir ? "Almeno una live in corso" : "Nessuna live in corso");
+  dotEl.title = onAir ? "Live in corso disponibili" : "Solo live programmate/terminate";
 }
 
 function createLiveBadgeElement(liveBadgeInfo) {
@@ -3333,7 +3702,7 @@ function parseVideoIdFromPath(pathname) {
 
 function isLiveProgramPath(pathname) {
   const relativePath = stripBasePath(pathname);
-  return /^\/live-programma\/?$/.test(String(relativePath || ""));
+  return /^\/(live-programma|live\/programma)\/?$/.test(String(relativePath || ""));
 }
 
 function isHomePath(pathname) {
